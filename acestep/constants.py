@@ -99,15 +99,17 @@ TASK_TYPES_BASE = ["text2music", "repaint", "cover", "cover-nofsq", "extract", "
 # Generation Mode Constants (UI-level modes that map to task types)
 # ==============================================================================
 
-# Default modes for turbo and SFT models (restricted set).  Edit is base-only
-# (paired CFG ≈ 4× decoder forwards/step is incompatible with turbo's CFG
-# distillation), so it does NOT appear here.
+# Default modes for turbo models.  Edit is excluded — paired CFG is
+# incompatible with turbo's CFG distillation.
 GENERATION_MODES_TURBO = ["Simple", "Custom", "Remix", "Repaint"]
 
-# Extended modes for pure base models only — adds Extract/Lego/Complete + Edit.
-# Edit (#1156) morphs the source audio toward a new prompt/lyrics via the
-# flow-edit V_delta integration; supported on the four base DiT variants
-# (xl_base / xl_sft / sft / base).
+# SFT-tier modes: same as turbo, plus Edit (#1156).  flow-edit's
+# ``flowedit_generate_audio`` is implemented on xl_sft / sft variants
+# alongside xl_base / base, so SFT users should see the Edit option,
+# but Extract/Lego/Complete still belong to pure-base only.
+GENERATION_MODES_SFT = ["Simple", "Custom", "Remix", "Repaint", "Edit"]
+
+# Pure-base modes — full feature set including Extract/Lego/Complete + Edit.
 GENERATION_MODES_BASE = ["Simple", "Custom", "Remix", "Repaint", "Extract", "Lego", "Complete", "Edit"]
 
 # Mapping from generation mode to task_type value

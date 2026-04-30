@@ -14,6 +14,7 @@ from acestep.constants import (
     TASK_TYPES_BASE,
     GENERATION_MODES_TURBO,
     GENERATION_MODES_BASE,
+    GENERATION_MODES_SFT,
 )
 
 
@@ -103,10 +104,15 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
 
     Used by both interactive init and service-mode startup so controls stay consistent.
     """
-    # Precedence: turbo > SFT > pure base > fallback.
+    # Precedence: turbo > SFT > pure base > fallback.  SFT joins pure-base
+    # for Edit-mode purposes (#1156: flow-edit is implemented on the SFT
+    # variants too) but does NOT get Extract/Lego/Complete.
     if is_pure_base:
         task_choices = TASK_TYPES_BASE
         mode_choices = GENERATION_MODES_BASE
+    elif is_sft and not is_turbo:
+        task_choices = TASK_TYPES_TURBO
+        mode_choices = GENERATION_MODES_SFT
     else:
         task_choices = TASK_TYPES_TURBO
         mode_choices = GENERATION_MODES_TURBO

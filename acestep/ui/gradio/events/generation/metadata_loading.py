@@ -124,17 +124,25 @@ def load_metadata(file_obj, llm_handler=None):
         retake_seed = "" if retake_seed_value is None else str(retake_seed_value)
         edit_target_caption = metadata.get('edit_target_caption', '') or ''
         edit_target_lyrics = metadata.get('edit_target_lyrics', '') or ''
+        # ``X or default`` would coerce a valid 0.0 into the default — explicit
+        # None check preserves user-set zero windows (the sampler accepts
+        # 0 <= n_min <= n_max <= 1).
+        _emin_raw = metadata.get('edit_n_min', 0.0)
         try:
-            edit_n_min = float(metadata.get('edit_n_min', 0.0) or 0.0)
+            edit_n_min = 0.0 if _emin_raw is None else float(_emin_raw)
         except (TypeError, ValueError):
             edit_n_min = 0.0
+        _emax_raw = metadata.get('edit_n_max', 1.0)
         try:
-            edit_n_max = float(metadata.get('edit_n_max', 1.0) or 1.0)
+            edit_n_max = 1.0 if _emax_raw is None else float(_emax_raw)
         except (TypeError, ValueError):
             edit_n_max = 1.0
+        _eavg_raw = metadata.get('edit_n_avg', 1)
         try:
-            edit_n_avg = int(metadata.get('edit_n_avg', 1) or 1)
+            edit_n_avg = 1 if _eavg_raw is None else int(_eavg_raw)
         except (TypeError, ValueError):
+            edit_n_avg = 1
+        if edit_n_avg < 1:
             edit_n_avg = 1
 
         is_mp3 = audio_format == "mp3"
