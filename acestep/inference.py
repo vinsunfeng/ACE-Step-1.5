@@ -165,6 +165,16 @@ class GenerationParams:
     # retake_variance=0 is a no-op; the retake_seed is only consumed when variance>0.
     retake_seed: Optional[Union[str, int]] = None
     retake_variance: float = 0.0
+    # Flow-edit (issue #1156): morph the source toward a new prompt/lyrics by
+    # integrating V_delta = V_tar - V_src over [edit_n_min, edit_n_max].
+    # Activated only when ``task_type == "edit"``; supported on the four
+    # base DiT variants (xl_base / xl_sft / sft / base).  v1 disables
+    # DCW / heun / ADG inside the loop — see #1156 for the follow-up plan.
+    edit_target_caption: str = ""
+    edit_target_lyrics: str = ""
+    edit_n_min: float = 0.0
+    edit_n_max: float = 1.0
+    edit_n_avg: int = 1
     audio_cover_strength: float = 1.0
     cover_noise_strength: float = 0.0  # 0=pure noise (no cover), 1=closest to src audio
 
@@ -429,7 +439,11 @@ def generate_music(
         # and don't need LM to generate audio codes or metadata.
         # For extract tasks, LLM-generated captions can conflict with the extract instruction
         # and cause the DiT model to reconstruct input audio instead of extracting stems.
-        skip_lm_tasks = {"cover", "cover-nofsq", "repaint", "extract"}
+        # Flow-edit (#1156) needs the user's source audio verbatim; running
+        # LM Phase 1 would replace ``audio_code_string_to_use`` and the
+        # handler would feed the LM-generated codes as source instead of
+        # ``src_audio``.  Add ``edit`` here to keep the source path clean.
+        skip_lm_tasks = {"cover", "cover-nofsq", "repaint", "extract", "edit"}
         
         # Determine if we should use LLM
         # LLM is needed for:
@@ -655,6 +669,11 @@ def generate_music(
             "repaint_strength": params.repaint_strength,
             "retake_seed": params.retake_seed,
             "retake_variance": params.retake_variance,
+            "edit_target_caption": params.edit_target_caption,
+            "edit_target_lyrics": params.edit_target_lyrics,
+            "edit_n_min": params.edit_n_min,
+            "edit_n_max": params.edit_n_max,
+            "edit_n_avg": params.edit_n_avg,
             "instruction": params.instruction,
             "audio_cover_strength": params.audio_cover_strength,
             "cover_noise_strength": params.cover_noise_strength,
@@ -718,6 +737,19 @@ def generate_music(
         if save_dir is not None:
             os.makedirs(save_dir, exist_ok=True)
 
+        # Resolve per-sample retake seeds (handler returns a comma-joined string
+        # of the actually-used seeds when retake_variance > 0).  We thread these
+        # back into per-audio params so the UUID hash includes the seed that
+        # actually produced the output, not the (possibly None) caller input.
+        # Without this, repeated runs with retake_seed=None and a fixed main
+        # seed would collide on UUID even though the audio differs.
+        retake_seed_value_str = (dit_extra_outputs or {}).get("retake_seed_value", "") or ""
+        retake_seeds_resolved = (
+            [s.strip() for s in retake_seed_value_str.split(",") if s.strip()]
+            if retake_seed_value_str
+            else []
+        )
+
         # Build audios list for GenerationResult with params and save files
         # Audio saving and UUID generation handled here, outside of handler
         audios = []
@@ -727,6 +759,12 @@ def generate_music(
 
             # Update audio-specific values
             audio_params["seed"] = seed_list[idx] if idx < len(seed_list) else None
+            if retake_seeds_resolved:
+                audio_params["retake_seed"] = (
+                    retake_seeds_resolved[idx]
+                    if idx < len(retake_seeds_resolved)
+                    else retake_seeds_resolved[0]
+                )
 
             # Add LM-generated audio codes (only if non-empty, to preserve
             # user-provided codes when LM was used only for CoT metas)
