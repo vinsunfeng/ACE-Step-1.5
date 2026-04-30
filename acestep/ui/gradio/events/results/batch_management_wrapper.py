@@ -53,6 +53,11 @@ def generate_with_batch_management(
     repaint_strength,
     retake_variance,
     retake_seed,
+    edit_target_caption,
+    edit_target_lyrics,
+    edit_n_min,
+    edit_n_max,
+    edit_n_avg,
     autogen_checkbox,
     current_batch_index,
     total_batches,
@@ -88,6 +93,8 @@ def generate_with_batch_management(
         latent_shift, latent_rescale,
         repaint_mode, repaint_strength,
         retake_variance, retake_seed,
+        edit_target_caption, edit_target_lyrics,
+        edit_n_min, edit_n_max, edit_n_avg,
         progress,
     )
 
@@ -162,6 +169,8 @@ def generate_with_batch_management(
         latent_shift, latent_rescale,
         repaint_mode=repaint_mode, repaint_strength=repaint_strength,
         retake_variance=retake_variance, retake_seed=retake_seed,
+        edit_target_caption=edit_target_caption, edit_target_lyrics=edit_target_lyrics,
+        edit_n_min=edit_n_min, edit_n_max=edit_n_max, edit_n_avg=edit_n_avg,
     )
 
     next_params = saved_params.copy()

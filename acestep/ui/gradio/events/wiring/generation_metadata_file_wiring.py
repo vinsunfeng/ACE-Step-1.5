@@ -49,6 +49,11 @@ _LOAD_METADATA_GENERATION_OUTPUT_KEYS = (
     "instrumental_checkbox",
     "retake_variance",
     "retake_seed",
+    "edit_target_caption",
+    "edit_target_lyrics",
+    "edit_n_min",
+    "edit_n_max",
+    "edit_n_avg",
 )
 
 

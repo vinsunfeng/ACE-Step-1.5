@@ -26,7 +26,7 @@ def load_metadata(file_obj, llm_handler=None):
     """
     if file_obj is None:
         gr.Warning(t("messages.no_file_selected"))
-        return [None] * 42 + [False]
+        return [None] * 47 + [False]
 
     try:
         if hasattr(file_obj, 'name'):
@@ -122,6 +122,20 @@ def load_metadata(file_obj, llm_handler=None):
             retake_variance = 0.0
         retake_seed_value = metadata.get('retake_seed_value', metadata.get('retake_seed', ''))
         retake_seed = "" if retake_seed_value is None else str(retake_seed_value)
+        edit_target_caption = metadata.get('edit_target_caption', '') or ''
+        edit_target_lyrics = metadata.get('edit_target_lyrics', '') or ''
+        try:
+            edit_n_min = float(metadata.get('edit_n_min', 0.0) or 0.0)
+        except (TypeError, ValueError):
+            edit_n_min = 0.0
+        try:
+            edit_n_max = float(metadata.get('edit_n_max', 1.0) or 1.0)
+        except (TypeError, ValueError):
+            edit_n_max = 1.0
+        try:
+            edit_n_avg = int(metadata.get('edit_n_avg', 1) or 1)
+        except (TypeError, ValueError):
+            edit_n_avg = 1
 
         is_mp3 = audio_format == "mp3"
 
@@ -143,15 +157,17 @@ def load_metadata(file_obj, llm_handler=None):
             cover_noise_strength, think, audio_codes, repainting_start, repainting_end,
             track_name, complete_track_classes, instrumental,
             retake_variance, retake_seed,
+            edit_target_caption, edit_target_lyrics,
+            edit_n_min, edit_n_max, edit_n_avg,
             True  # is_format_caption
         )
 
     except json.JSONDecodeError as e:
         gr.Warning(t("messages.invalid_json", error=str(e)))
-        return [None] * 42 + [False]
+        return [None] * 47 + [False]
     except Exception as e:
         gr.Warning(t("messages.load_error", error=str(e)))
-        return [None] * 42 + [False]
+        return [None] * 47 + [False]
 
 
 def _get_project_root() -> str:

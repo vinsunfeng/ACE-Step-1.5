@@ -24,6 +24,7 @@ def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "C
     is_extract = (mode == "Extract")
     is_lego = (mode == "Lego")
     is_complete = (mode == "Complete")
+    is_edit = (mode == "Edit")
     leaving_extract_or_lego = previous_mode in ("Extract", "Lego")
     not_simple = not is_simple
 
@@ -32,15 +33,20 @@ def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "C
     show_custom_group = not_simple and not is_extract
     show_generate_row = not_simple
     generate_interactive = not_simple
-    show_src_audio = is_cover or is_repaint or is_extract or is_lego or is_complete
+    show_src_audio = is_cover or is_repaint or is_extract or is_lego or is_complete or is_edit
     show_optional = not_simple and not is_extract and not is_lego
     show_repainting = is_repaint or is_lego
     show_audio_codes = is_custom
     show_track_name = is_lego or is_extract
     show_complete_classes = is_complete
+    show_edit_group = is_edit  # Edit-mode target prompts + n_min/n_max/n_avg sliders.
 
-    # Audio cover strength
-    show_strength = not is_simple and not is_repaint and not is_extract and not is_lego
+    # Audio cover strength — not relevant to repaint/extract/lego/edit
+    # (edit is whole-song morph, not a cover blend).
+    show_strength = (
+        not is_simple and not is_repaint and not is_extract
+        and not is_lego and not is_edit
+    )
     if is_cover:
         strength_label = t("generation.remix_strength_label")
         strength_info = t("generation.remix_strength_info")
@@ -56,9 +62,12 @@ def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "C
     strength_update = gr.update(**strength_kwargs)
     cover_noise_update = gr.update(visible=is_cover, value=0.2) if is_cover else gr.update(visible=False)
 
-    # Think checkbox
+    # Think checkbox.  Edit (#1156) joins the no-LM-phase set since the
+    # source caption/lyrics describe the user's actual audio, not an LM
+    # imagination — running Phase 1 would replace those with generated
+    # audio codes (matches the ``inference.skip_lm_tasks`` set).
     lm_initialized = llm_handler.llm_initialized if llm_handler else False
-    if is_extract or is_lego or is_cover or is_repaint:
+    if is_extract or is_lego or is_cover or is_repaint or is_edit:
         think_update = gr.update(interactive=False, value=False, visible=not (is_extract or is_lego))
     elif not lm_initialized:
         think_update = gr.update(interactive=False, value=False, visible=True)
@@ -75,6 +84,11 @@ def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "C
         "Extract": t("generation.mode_info_extract"),
         "Lego": t("generation.mode_info_lego"),
         "Complete": t("generation.mode_info_complete"),
+        "Edit": (
+            "Flow-edit: morph the source toward a new caption/lyrics. "
+            "Pick only_lyrics (keep melody) or remix (change music). "
+            "Base models only."
+        ),
     }
     mode_help_text = mode_descriptions.get(mode, "")
     show_results = not_simple
@@ -118,7 +132,7 @@ def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "C
         auto_duration_update = gr.update()
 
     # Clear stale audio codes when leaving/returning from source-audio modes.
-    _prev_has_src_audio = previous_mode in ("Remix", "Repaint", "Extract", "Lego", "Complete")
+    _prev_has_src_audio = previous_mode in ("Remix", "Repaint", "Extract", "Lego", "Complete", "Edit")
     if is_custom:
         if _prev_has_src_audio:
             audio_codes_update = gr.update(value="", visible=True)
@@ -172,10 +186,11 @@ def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "C
         gr.skip(),                                         # 34: repaint_strength
         gr.skip(),                                         # 35: retake_variance
         gr.skip(),                                         # 36: retake_seed
-        mode,                                              # 37: previous_generation_mode
-        gr.update(visible=is_cover),                       # 34: remix_help_group
-        gr.update(visible=(is_extract or is_lego)),        # 35: extract_help_group
-        gr.update(visible=is_complete),                    # 36: complete_help_group
+        gr.update(visible=show_edit_group),                # 37: edit_group
+        mode,                                              # 38: previous_generation_mode
+        gr.update(visible=is_cover),                       # 39: remix_help_group
+        gr.update(visible=(is_extract or is_lego)),        # 40: extract_help_group
+        gr.update(visible=is_complete),                    # 41: complete_help_group
         auto_bpm_update,                                   # 37: bpm_auto
         auto_key_update,                                   # 38: key_auto
         auto_timesig_update,                               # 39: timesig_auto

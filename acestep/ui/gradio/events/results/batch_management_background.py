@@ -126,6 +126,11 @@ def generate_next_batch_background(
             repaint_strength=params.get("repaint_strength", 0.5),
             retake_variance=params.get("retake_variance", 0.0),
             retake_seed=params.get("retake_seed", ""),
+            edit_target_caption=params.get("edit_target_caption", ""),
+            edit_target_lyrics=params.get("edit_target_lyrics", ""),
+            edit_n_min=params.get("edit_n_min", 0.0),
+            edit_n_max=params.get("edit_n_max", 1.0),
+            edit_n_avg=params.get("edit_n_avg", 1),
             progress=progress,
         )
 

@@ -64,6 +64,7 @@ MODE_OUTPUT_EXPECTED = [
     "repaint_strength",
     "retake_variance",
     "retake_seed",
+    "edit_group",
     "previous_generation_mode",
     "remix_help_group",
     "extract_help_group",

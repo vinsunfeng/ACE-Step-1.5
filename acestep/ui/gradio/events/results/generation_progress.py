@@ -63,6 +63,11 @@ def generate_with_progress(
     repaint_strength,
     retake_variance=0.0,
     retake_seed="",
+    edit_target_caption="",
+    edit_target_lyrics="",
+    edit_n_min=0.0,
+    edit_n_max=1.0,
+    edit_n_avg=1,
     progress=gr.Progress(track_tqdm=True),
 ):
     """Generate audio with progress tracking.
@@ -174,6 +179,11 @@ def generate_with_progress(
         retake_variance=float(retake_variance) if retake_variance is not None else 0.0,
         # Empty textbox -> None; otherwise a string is fine (handler.prepare_seeds parses it).
         retake_seed=(retake_seed.strip() or None) if isinstance(retake_seed, str) else retake_seed,
+        edit_target_caption=edit_target_caption or "",
+        edit_target_lyrics=edit_target_lyrics or "",
+        edit_n_min=float(edit_n_min) if edit_n_min is not None else 0.0,
+        edit_n_max=float(edit_n_max) if edit_n_max is not None else 1.0,
+        edit_n_avg=int(edit_n_avg) if edit_n_avg else 1,
     )
 
     if isinstance(seed, str) and seed.strip():

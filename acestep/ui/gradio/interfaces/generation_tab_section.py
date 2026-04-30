@@ -29,6 +29,7 @@ from .generation_tab_secondary_controls import (
     build_repainting_controls,
 )
 from .generation_tab_retake_controls import build_retake_controls
+from .generation_tab_edit_controls import build_edit_controls
 
 
 def create_generation_tab_section(
@@ -74,6 +75,7 @@ def create_generation_tab_section(
         custom_mode_controls = build_custom_mode_controls()
         repainting_controls = build_repainting_controls()
         retake_controls = build_retake_controls()
+        edit_controls = build_edit_controls()
         optional_controls = build_optional_parameter_controls(
             max_duration=max_duration,
             max_batch_size=max_batch_size,
@@ -96,6 +98,7 @@ def create_generation_tab_section(
     result.update(custom_mode_controls)
     result.update(repainting_controls)
     result.update(retake_controls)
+    result.update(edit_controls)
     result.update(optional_controls)
     result.update(generate_controls)
     result.update(

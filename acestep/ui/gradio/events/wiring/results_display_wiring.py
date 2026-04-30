@@ -135,6 +135,11 @@ def register_results_restore_and_lrc_handlers(context: GenerationWiringContext) 
             generation_section["no_fsq"],
             generation_section["retake_variance"],
             generation_section["retake_seed"],
+            generation_section["edit_target_caption"],
+            generation_section["edit_target_lyrics"],
+            generation_section["edit_n_min"],
+            generation_section["edit_n_max"],
+            generation_section["edit_n_avg"],
         ],
     )
 

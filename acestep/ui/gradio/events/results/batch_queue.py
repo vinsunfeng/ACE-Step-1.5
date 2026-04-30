@@ -114,6 +114,8 @@ def capture_current_params(
     latent_shift, latent_rescale,
     repaint_mode, repaint_strength,
     retake_variance=0.0, retake_seed="",
+    edit_target_caption="", edit_target_lyrics="",
+    edit_n_min=0.0, edit_n_max=1.0, edit_n_avg=1,
 ):
     """Capture current UI parameters for next-batch generation.
 
@@ -178,6 +180,11 @@ def capture_current_params(
         "repaint_strength": repaint_strength,
         "retake_variance": retake_variance,
         "retake_seed": retake_seed,
+        "edit_target_caption": edit_target_caption,
+        "edit_target_lyrics": edit_target_lyrics,
+        "edit_n_min": edit_n_min,
+        "edit_n_max": edit_n_max,
+        "edit_n_avg": edit_n_avg,
     }
 
 
@@ -193,7 +200,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     """
     if current_batch_index not in batch_queue:
         gr.Warning(t("messages.no_batch_data"))
-        return [gr.update()] * 33
+        return [gr.update()] * 38
 
     batch_data = batch_queue[current_batch_index]
     params = batch_data.get("generation_params", {})
@@ -229,6 +236,11 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     no_fsq = params.get("no_fsq", False)
     retake_variance = params.get("retake_variance", 0.0)
     retake_seed = params.get("retake_seed", "")
+    edit_target_caption = params.get("edit_target_caption", "")
+    edit_target_lyrics = params.get("edit_target_lyrics", "")
+    edit_n_min = params.get("edit_n_min", 0.0)
+    edit_n_max = params.get("edit_n_max", 1.0)
+    edit_n_avg = params.get("edit_n_avg", 1)
 
     stored_codes = batch_data.get("codes", "")
     is_mp3 = audio_format == "mp3"
@@ -252,4 +264,6 @@ def restore_batch_parameters(current_batch_index, batch_queue):
         fade_in_duration, fade_out_duration,
         latent_shift, latent_rescale, no_fsq,
         retake_variance, retake_seed,
+        edit_target_caption, edit_target_lyrics,
+        edit_n_min, edit_n_max, edit_n_avg,
     )

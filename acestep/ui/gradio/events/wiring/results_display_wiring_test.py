@@ -46,6 +46,11 @@ _EXPECTED_RESTORE_OUTPUT_KEYS = [
     "no_fsq",
     "retake_variance",
     "retake_seed",
+    "edit_target_caption",
+    "edit_target_lyrics",
+    "edit_n_min",
+    "edit_n_max",
+    "edit_n_avg",
 ]
 
 _EXPECTED_JS_MARKERS = [

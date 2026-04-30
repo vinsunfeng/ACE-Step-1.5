@@ -169,6 +169,11 @@ def _build_capture_current_params_inputs(generation_section: dict[str, Any]) -> 
         generation_section["repaint_strength"],
         generation_section["retake_variance"],
         generation_section["retake_seed"],
+        generation_section["edit_target_caption"],
+        generation_section["edit_target_lyrics"],
+        generation_section["edit_n_min"],
+        generation_section["edit_n_max"],
+        generation_section["edit_n_avg"],
     ]
 
 
