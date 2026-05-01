@@ -18,11 +18,11 @@ import torch
 
 from acestep.audio_utils import AudioSaver, apply_fade, generate_uuid_from_params, normalize_audio, get_lora_weights_hash
 from acestep.constants import BPM_MIN, BPM_MAX, DURATION_MAX, TASK_TYPES, VALID_TIME_SIGNATURES
-from acestep.core.generation.handler.retake_session import (
-    build_retake_generation_inputs,
-    is_session_retake_mode,
-    load_retake_source_track,
+from acestep.core.generation.handler.source_session import (
+    load_source_session_track,
     resolve_repaint_mode,
+)
+from acestep.core.generation.handler.source_session_save import (
     save_generation_session_artifacts,
 )
 
@@ -166,11 +166,11 @@ class GenerationParams:
     chunk_mask_mode: str = "auto"  # "explicit" = 0/1 mask from repaint range; "auto" = all 2.0 (model decides)
     repaint_latent_crossfade_frames: int = 10  # latent-level boundary blend width (25Hz frames, 10≈0.4s)
     repaint_wav_crossfade_sec: float = 0.0  # waveform-level splice crossfade (seconds, 0=hard cut)
-    repaint_mode: str = "auto"  # auto, most natural, conservative, balanced, or aggressive
+    repaint_mode: str = "auto"  # auto, conservative, balanced, or aggressive
     repaint_strength: float = 0.5  # 0.0=aggressive, 1.0=conservative (balanced mode only)
     source_session_dir: Optional[str] = None
     source_track_index: int = 1
-    source_latent_mix_ratio: float = 0.3
+    source_latent_mix_ratio: float = 0.3  # Deprecated compatibility field.
     repainting_regions: Optional[List[Dict[str, float]]] = None
     save_session_artifacts: bool = False
     session_output_dir: Optional[str] = None
@@ -428,48 +428,22 @@ def generate_music(
         dit_input_vocal_language = params.vocal_language
         dit_input_lyrics = params.lyrics
         effective_repaint_mode = resolve_repaint_mode(params.repaint_mode, params.source_session_dir)
-        retake_source_latents = None
-        retake_source_track = None
+        source_repaint_latents = None
 
-        if is_session_retake_mode(effective_repaint_mode):
-            if not params.source_session_dir:
-                raise ValueError("repaint_mode='most natural' requires source_session_dir")
-            retake_source_track = load_retake_source_track(
+        if params.task_type == "repaint" and params.source_session_dir:
+            source_track = load_source_session_track(
                 params.source_session_dir,
                 params.source_track_index,
             )
-            retake_inputs = build_retake_generation_inputs(
-                retake_source_track,
-                {
-                    "caption": params.caption,
-                    "lyrics": params.lyrics,
-                    "bpm": params.bpm,
-                    "keyscale": params.keyscale,
-                    "timesignature": params.timesignature,
-                    "vocal_language": params.vocal_language,
-                },
-            )
-            params.task_type = "text2music"
-            params.thinking = False
-            params.use_cot_metas = False
-            params.use_cot_caption = False
-            params.use_cot_language = False
-            params.audio_codes = retake_inputs["audio_codes"]
-            audio_code_string_to_use = retake_inputs["audio_codes"]
-            retake_source_latents = retake_source_track["latents"]
-            dit_input_caption = retake_inputs["caption"]
-            dit_input_lyrics = retake_inputs["lyrics"]
-            dit_input_vocal_language = retake_inputs["vocal_language"]
-            bpm = retake_inputs["bpm"]
-            key_scale = retake_inputs["keyscale"]
-            time_signature = retake_inputs["timesignature"]
-            audio_duration = retake_inputs["duration"]
+            source_repaint_latents = source_track["latents"]
+            audio_duration = source_track["duration"]
             logger.info(
-                "[most natural] Loaded source session={} track={} duration={:.2f}s mix_ratio={:.2f}",
+                "[session_repaint] Loaded source session={} track={} duration={:.2f}s "
+                "latents_shape={}",
                 params.source_session_dir,
                 params.source_track_index,
                 float(audio_duration),
-                float(params.source_latent_mix_ratio),
+                tuple(source_repaint_latents.shape),
             )
         # Determine if we need to generate audio codes
         # If user has provided audio_codes, we don't need to generate them
@@ -761,7 +735,7 @@ def generate_music(
             "source_track_index": params.source_track_index,
             "source_latent_mix_ratio": params.source_latent_mix_ratio,
             "repainting_regions": params.repainting_regions,
-            "retake_source_latents": retake_source_latents,
+            "source_repaint_latents": source_repaint_latents,
             "retake_seed": params.retake_seed,
             "retake_variance": params.retake_variance,
             "flow_edit_morph": params.flow_edit_morph,

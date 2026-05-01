@@ -134,11 +134,11 @@ class ReleaseTaskRequestBuilderTests(unittest.TestCase):
         self.assertEqual("<|audio_code_7|>", request.audio_code_string)
         self.assertAlmostEqual(0.6, request.cover_noise_strength)
 
-    def test_build_request_forwards_session_retake_fields(self):
-        """Builder should include session-backed retake request fields."""
+    def test_build_request_forwards_source_session_fields(self):
+        """Builder should include generated-source repaint request fields."""
         parser = _FakeParser(
             {
-                "repaint_mode": "most natural",
+                "repaint_mode": "balanced",
                 "source_session_dir": "/tmp/source-session",
                 "source_track_index": 2,
                 "source_latent_mix_ratio": 0.25,
@@ -156,7 +156,7 @@ class ReleaseTaskRequestBuilderTests(unittest.TestCase):
             lm_default_top_p=0.9,
         )
 
-        self.assertEqual("most natural", request.repaint_mode)
+        self.assertEqual("balanced", request.repaint_mode)
         self.assertEqual("/tmp/source-session", request.source_session_dir)
         self.assertEqual(2, request.source_track_index)
         self.assertAlmostEqual(0.25, request.source_latent_mix_ratio)

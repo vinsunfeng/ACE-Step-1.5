@@ -1,4 +1,4 @@
-"""Persist reusable session artifacts for session-backed repaint retake."""
+"""Persist reusable source-session artifacts for generated audio."""
 
 from __future__ import annotations
 
@@ -13,16 +13,15 @@ from loguru import logger
 
 
 def can_save_generation_session_artifacts(result: Any) -> bool:
-    """Return whether a generation result has the artifacts retake needs.
+    """Return whether a generation result has reusable final latents.
 
     Args:
         result: ``GenerationResult``-like object with audios and extra outputs.
 
     Returns:
-        ``True`` only when every output track has audio codes and matching final
-        latents are present. This is intentionally capability-based rather than
-        task-name-based so any ACE-generated result with saved codes can become
-        a most-natural repaint source.
+        ``True`` when every output track has matching final latents. This is
+        intentionally capability-based rather than task-name-based so any
+        ACE-generated result with saved latents can become a repaint source.
     """
     if not getattr(result, "success", False):
         return False
@@ -36,7 +35,7 @@ def can_save_generation_session_artifacts(result: Any) -> bool:
     shape = getattr(pred_latents, "shape", None)
     if shape is not None and len(shape) > 0 and int(shape[0]) < len(audios):
         return False
-    return all(_track_audio_codes(audio.get("params") or {}) for audio in audios)
+    return True
 
 
 def save_generation_session_artifacts(
@@ -45,7 +44,7 @@ def save_generation_session_artifacts(
     session_dir: str,
     source: str = "acestep",
 ) -> None:
-    """Persist generated outputs as reusable retake session artifacts.
+    """Persist generated outputs as reusable source-session artifacts.
 
     Args:
         result: ``GenerationResult`` returned by inference.
@@ -53,7 +52,7 @@ def save_generation_session_artifacts(
         source: Short source label stored in ``session.json``.
 
     Raises:
-        ValueError: If required audio codes or final latents are missing.
+        ValueError: If required final latents are missing.
     """
     root = Path(session_dir).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -69,9 +68,6 @@ def save_generation_session_artifacts(
     tracks = []
     for index, audio in enumerate(result.audios or [], start=1):
         params = dict(audio.get("params") or {})
-        audio_codes = _track_audio_codes(params)
-        if not audio_codes:
-            raise ValueError("save_session_artifacts requires per-track audio_codes")
         params_path = root / f"{index:02d}_params.json"
         _copy_session_audio(root, params, audio, index)
         if index - 1 >= pred_latents.shape[0]:
@@ -79,11 +75,12 @@ def save_generation_session_artifacts(
         latent = pred_latents[index - 1].detach().cpu().float().numpy()
         np.save(root / f"{index:02d}_latents.npy", latent)
         params["session_latents_file"] = f"{index:02d}_latents.npy"
+        params["session_has_audio_codes"] = bool(_track_audio_codes(params))
         _write_json(params_path, params)
         tracks.append({"index": index, "params_file": params_path.name})
 
     _write_json(root / "session.json", {"source": source, "tracks": tracks})
-    logger.info("[retake_session] Saved reusable session artifacts to {}", root)
+    logger.info("[source_session] Saved reusable session artifacts to {}", root)
 
 
 def _copy_session_audio(

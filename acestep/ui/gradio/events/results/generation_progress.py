@@ -15,7 +15,7 @@ import torch
 from loguru import logger
 
 from acestep.audio_utils import save_audio
-from acestep.core.generation.handler.retake_session_save import (
+from acestep.core.generation.handler.source_session_save import (
     can_save_generation_session_artifacts,
     save_generation_session_artifacts,
 )
@@ -486,10 +486,10 @@ def _persist_gradio_source_session(
     *,
     result,
 ) -> None:
-    """Save hidden source-session artifacts for retake-capable Gradio outputs.
+    """Save hidden source-session artifacts for generated Gradio outputs.
 
-    The artifacts are used by "Send To Repaint" to enable session-backed
-    most-natural repaint without exposing filesystem fields in the UI.
+    The artifacts are used by "Send To Repaint" to reuse final latents without
+    exposing filesystem fields in the UI.
     """
     if not can_save_generation_session_artifacts(result):
         return

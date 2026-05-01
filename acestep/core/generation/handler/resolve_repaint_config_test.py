@@ -63,13 +63,6 @@ class TestResolveRepaintConfig(unittest.TestCase):
         self.assertEqual(frames, 12)
         self.assertAlmostEqual(wav, 0.025)
 
-    def test_most_natural_returns_no_legacy_repaint_injection(self):
-        """Most natural mode bypasses legacy repaint injection and wav splicing."""
-        ratio, frames, wav = _resolve_repaint_config("most natural", 0.5)
-        self.assertEqual(ratio, 0.0)
-        self.assertEqual(frames, 0)
-        self.assertEqual(wav, 0.0)
-
 
 if __name__ == "__main__":
     unittest.main()

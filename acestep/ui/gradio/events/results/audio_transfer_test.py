@@ -34,7 +34,7 @@ class SendAudioToRepaintTests(unittest.TestCase):
 
         repaint_mode_update = result[6 + 33]
         self.assertEqual("Repaint", result[1]["value"])
-        self.assertIn("most natural", repaint_mode_update["choices"])
+        self.assertNotIn("most natural", repaint_mode_update["choices"])
         self.assertEqual("auto", repaint_mode_update["value"])
         self.assertEqual(session_dir, result[-2])
         self.assertEqual(2, result[-1])
@@ -85,7 +85,7 @@ class SendAudioToRepaintTests(unittest.TestCase):
             )
 
         repaint_mode_update = result[6 + 33]
-        self.assertIn("most natural", repaint_mode_update["choices"])
+        self.assertNotIn("most natural", repaint_mode_update["choices"])
         self.assertEqual(session_dir, result[-2])
         self.assertEqual(2, result[-1])
 

@@ -8,7 +8,6 @@ from acestep.ui.gradio.i18n import t
 
 
 _BASE_REPAINT_MODE_CHOICES = ["auto", "conservative", "balanced", "aggressive"]
-_SESSION_REPAINT_MODE_CHOICES = ["auto", "most natural", "conservative", "balanced", "aggressive"]
 _REPAINT_MODE_UPDATE_INDEX = 33
 
 
@@ -145,9 +144,8 @@ def send_audio_to_repaint(
 
 
 def _repaint_mode_update(source_session_dir: str):
-    """Build the repaint-mode dropdown update for session-aware choices."""
-    if source_session_dir:
-        return gr.update(choices=_SESSION_REPAINT_MODE_CHOICES, value="auto")
+    """Build the repaint-mode dropdown update."""
+    _ = source_session_dir
     return gr.update(choices=_BASE_REPAINT_MODE_CHOICES, value="auto")
 
 

@@ -47,8 +47,7 @@ class ServiceGenerateMixin:
         chunk_mask_modes: Optional[List[str]] = None,
         repaint_crossfade_frames: int = 10,
         repaint_injection_ratio: float = 0.5,
-        retake_source_latents: Optional[torch.Tensor] = None,
-        source_latent_mix_ratio: float = 0.0,
+        source_repaint_latents: Optional[torch.Tensor] = None,
         sampler_mode: str = "euler",
         velocity_norm_threshold: float = 0.0,
         velocity_ema_factor: float = 0.0,
@@ -115,6 +114,7 @@ class ServiceGenerateMixin:
             cover_noise_strength=cover_noise_strength,
             chunk_mask_modes=chunk_mask_modes,
             task_type=task_type,
+            source_repaint_latents=source_repaint_latents,
         )
         payload = self._unpack_service_processed_data(self.preprocess_batch(batch))
         seed_param = self._resolve_service_seed_param(normalized["seed_list"])
@@ -134,8 +134,6 @@ class ServiceGenerateMixin:
             timesteps=timesteps,
             repaint_crossfade_frames=repaint_crossfade_frames,
             repaint_injection_ratio=repaint_injection_ratio,
-            retake_source_latents=retake_source_latents,
-            source_latent_mix_ratio=source_latent_mix_ratio,
             sampler_mode=sampler_mode,
             velocity_norm_threshold=velocity_norm_threshold,
             velocity_ema_factor=velocity_ema_factor,

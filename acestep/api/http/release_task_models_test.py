@@ -36,20 +36,20 @@ class ReleaseTaskModelsTests(unittest.TestCase):
         req = GenerateMusicRequest(
             audio_code_string="<|audio_code_1|>",
             cover_noise_strength=0.75,
-            repaint_mode="most natural",
+            repaint_mode="balanced",
             source_session_dir="/tmp/source-session",
         )
         self.assertEqual("<|audio_code_1|>", req.audio_code_string)
         self.assertAlmostEqual(0.75, req.cover_noise_strength)
-        self.assertEqual("most natural", req.repaint_mode)
+        self.assertEqual("balanced", req.repaint_mode)
         self.assertEqual("/tmp/source-session", req.source_session_dir)
 
-    def test_legacy_retake_mode_alias_normalizes_to_most_natural(self):
-        """Legacy retake API clients should keep working with the new label."""
+    def test_legacy_retake_mode_alias_normalizes_to_balanced(self):
+        """Legacy retake API clients should fall back to the supported path."""
 
         req = GenerateMusicRequest(repaint_mode="retake")
 
-        self.assertEqual("most natural", req.repaint_mode)
+        self.assertEqual("balanced", req.repaint_mode)
 
 
 if __name__ == "__main__":

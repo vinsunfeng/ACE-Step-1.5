@@ -7,10 +7,7 @@ from typing import List, Literal, Optional, Union
 from pydantic import BaseModel, Field, field_validator
 
 from acestep.constants import DEFAULT_DIT_INSTRUCTION
-from acestep.core.generation.handler.retake_session import (
-    MOST_NATURAL_REPAINT_MODE,
-    normalize_repaint_mode_alias,
-)
+from acestep.core.generation.handler.source_session import normalize_repaint_mode_alias
 
 
 class GenerateMusicRequest(BaseModel):
@@ -80,12 +77,10 @@ class GenerateMusicRequest(BaseModel):
         "conservative",
         "balanced",
         "aggressive",
-        "most natural",
     ] = Field(
         default="auto",
         description=(
-            "Repaint preservation mode: auto, conservative, balanced, aggressive, "
-            f"or session-backed {MOST_NATURAL_REPAINT_MODE}"
+            "Repaint preservation mode: auto, conservative, balanced, or aggressive."
         ),
     )
     repaint_strength: float = Field(
@@ -96,7 +91,7 @@ class GenerateMusicRequest(BaseModel):
     )
     source_session_dir: Optional[str] = Field(
         default=None,
-        description="Reusable ACE-Step source session directory for repaint_mode='most natural'.",
+        description="Reusable ACE-Step source session directory for generated-source repaint.",
     )
     source_track_index: int = Field(
         default=1,
@@ -107,7 +102,7 @@ class GenerateMusicRequest(BaseModel):
         default=0.3,
         ge=0.0,
         lt=1.0,
-        description="Retake source-latent mix ratio used for biased initial noise.",
+        description="Deprecated compatibility field; ignored by session-backed repaint.",
     )
     repainting_regions: Optional[List[dict]] = Field(
         default=None,
@@ -115,7 +110,7 @@ class GenerateMusicRequest(BaseModel):
     )
     save_session_artifacts: bool = Field(
         default=False,
-        description="Persist generated audio codes and final latents for future retake.",
+        description="Persist generated final latents for future session-backed repaint.",
     )
     session_output_dir: Optional[str] = Field(
         default=None,
