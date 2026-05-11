@@ -245,6 +245,10 @@ class ServiceGenerateExecuteMixin:
                             dcw_wavelet=generate_kwargs.get("dcw_wavelet", "haar"),
                             retake_seed=retake_seed,
                             retake_variance=retake_variance,
+                            repaint_mask=generate_kwargs.get("repaint_mask"),
+                            clean_src_latents=generate_kwargs.get("clean_src_latents"),
+                            repaint_crossfade_frames=generate_kwargs.get("repaint_crossfade_frames", 10),
+                            repaint_injection_ratio=generate_kwargs.get("repaint_injection_ratio", 0.5),
                         )
                         _tc = outputs.get("time_costs", {})
                         logger.info(

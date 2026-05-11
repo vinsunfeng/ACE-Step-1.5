@@ -133,6 +133,40 @@ def _mlx_apg_forward(
     return pred_cond + (guidance_scale - 1) * orthogonal
 
 
+def _mlx_repaint_step_injection(xt, clean_src, mask, t_next, noise):
+    """Replace non-repaint regions of *xt* with noised source latents (MLX)."""
+    import mlx.core as mx
+    zt = t_next * noise + (1.0 - t_next) * clean_src
+    m = mx.expand_dims(mask, axis=-1)
+    return mx.where(m, xt, zt)
+
+
+def _mlx_repaint_boundary_blend(x_gen, clean_src, mask_np, cf_frames):
+    """Blend generated latents with source at repaint boundaries (MLX)."""
+    import mlx.core as mx
+    soft = mask_np.astype(np.float32).copy()
+    if cf_frames <= 0:
+        m = mx.expand_dims(mx.array(soft), axis=-1)
+        return m * x_gen + (1.0 - m) * clean_src
+    B, T = mask_np.shape
+    for b in range(B):
+        row = mask_np[b]
+        if row.all() or not row.any():
+            continue
+        idx = np.nonzero(row)[0]
+        if len(idx) == 0:
+            continue
+        left, right = int(idx[0]), int(idx[-1]) + 1
+        fs = max(left - cf_frames, 0)
+        if left - fs > 0:
+            soft[b, fs:left] = np.linspace(0, 1, left - fs + 2)[1:-1]
+        fe = min(right + cf_frames, T)
+        if fe - right > 0:
+            soft[b, right:fe] = np.linspace(1, 0, fe - right + 2)[1:-1]
+    m = mx.expand_dims(mx.array(soft), axis=-1)
+    return m * x_gen + (1.0 - m) * clean_src
+
+
 def mlx_generate_diffusion(
     mlx_decoder,
     encoder_hidden_states_np: np.ndarray,
@@ -162,6 +196,10 @@ def mlx_generate_diffusion(
     dcw_scaler: float = 0.05,
     dcw_high_scaler: float = 0.02,
     dcw_wavelet: str = "haar",
+    repaint_mask_np: Optional[np.ndarray] = None,
+    clean_src_latents_np: Optional[np.ndarray] = None,
+    repaint_crossfade_frames: int = 10,
+    repaint_injection_ratio: float = 0.5,
 ) -> Dict[str, object]:
     """Run the complete MLX diffusion loop with optional CFG guidance.
 
@@ -231,6 +269,11 @@ def mlx_generate_diffusion(
 
     enc_hs_nc = mx.array(encoder_hidden_states_non_cover_np) if encoder_hidden_states_non_cover_np is not None else None
     ctx_nc = mx.array(context_latents_non_cover_np) if context_latents_non_cover_np is not None else None
+
+    # ---- Repaint setup ----
+    do_repaint = repaint_mask_np is not None and clean_src_latents_np is not None
+    repaint_mask_mx = mx.array(repaint_mask_np) if do_repaint else None
+    clean_src_mx = mx.array(clean_src_latents_np) if do_repaint else None
 
     bsz = src_latents_shape[0]
     T = src_latents_shape[1]
@@ -456,6 +499,19 @@ def mlx_generate_diffusion(
             mx.eval(xt)
 
         prev_vt = vt  # store for EMA
+
+        # ---- Repaint step injection ----
+        if do_repaint:
+            injection_cutoff = round(repaint_injection_ratio * num_steps)
+            if step_idx < injection_cutoff:
+                t_after = t_schedule_list[step_idx + 1] if step_idx < num_steps - 1 else 0.0
+                xt = _mlx_repaint_step_injection(xt, clean_src_mx, repaint_mask_mx, t_after, noise)
+                mx.eval(xt)
+
+    # ---- Repaint boundary blend (post-loop) ----
+    if do_repaint and repaint_crossfade_frames > 0:
+        xt = _mlx_repaint_boundary_blend(xt, clean_src_mx, repaint_mask_np, repaint_crossfade_frames)
+        mx.eval(xt)
 
     diff_end = time.time()
     total_end = time.time()
