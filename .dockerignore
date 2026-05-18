@@ -51,8 +51,12 @@ Thumbs.db
 # Large docs / assets not needed at runtime
 docs/pics/
 
-# Test output
+# Test / generated output
 output/
+
+# UV lock file needed by Jetson Dockerfile (which installs deps manually),
+# but the generic Dockerfile uses `uv sync --frozen` and REQUIRES it.
+# Do NOT add uv.lock here.
 
 # Windows scripts
 *.bat
