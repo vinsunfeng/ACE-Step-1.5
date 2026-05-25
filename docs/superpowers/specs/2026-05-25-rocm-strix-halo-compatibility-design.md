@@ -72,7 +72,7 @@ This eliminates the top 3 blockers from previous designs:
 toolbox create acestep-rocm \
   --image docker.io/kyuz0/vllm-therock-gfx1151:stable \
   -- --device /dev/dri --device /dev/kfd \
-  --group-add video --group-add render --group-add sudo \
+  --group-add video --group-add render \
   --security-opt seccomp=unconfined
 
 toolbox enter acestep-rocm
@@ -97,6 +97,7 @@ python -c "import torch; print(f'torch={torch.__version__}'); print(f'HIP={torch
 | T1.5 | `F.scaled_dot_product_attention` | SDPA kernel works | Output tensor returned |
 | T1.6 | `torch.cuda.get_device_properties(0).total_memory` | VRAM detection | Reports >4GB (not just 512MB BIOS buffer) |
 | T1.7 | Conv1d forward pass | MIOpen conv path | No error |
+| T1.8 | `import flash_attn` | ROCm flash-attention available | No ImportError; if passes, try vllm backend |
 
 **Failure policy**: Record error, stop. Toolbox-level failures mean the container ROCm stack doesn't support gfx1151 properly.
 
@@ -112,27 +113,31 @@ cd ~/project/ACE-Step-1.5  # $HOME is mounted in toolbox
 grep -v torchao requirements-rocm-linux.txt > /tmp/req-rocm.txt
 pip install -r /tmp/req-rocm.txt
 
+# Verify vLLM still works after dependency install
+python -c "import vllm; print(f'vllm={vllm.__version__}')" || echo "WARNING: vLLM broken, but not needed for ACE-Step"
+
 # nano-vllm (Python 3.12 avoids triton, --no-deps to be safe)
 pip install --no-deps -e acestep/third_parts/nano-vllm
-pip install xxhash
 
 # Project itself (skip deps to avoid CUDA torch pin conflict)
 pip install --no-deps -e .
 
-# Additional deps
+# Additional deps that requirements-rocm-linux.txt may miss
 pip install typer-slim pytorch-wavelets pywavelets
 ```
 
 ### 2.2 Set environment
+
+The toolbox auto-sets ROCm env vars via `/etc/profile.d/01-rocm-env-for-triton.sh` including `MIOPEN_FIND_MODE=FAST`, `FLASH_ATTENTION_TRITON_AMD_ENABLE=TRUE`, `LD_LIBRARY_PATH`, and `PYTHONNOUSERSITE=1`. These are additions/overrides:
 
 ```bash
 export ACESTEP_LM_BACKEND=pt
 export ACESTEP_DEVICE=auto
 export ACESTEP_ROCM_DTYPE=float32
 export TORCH_COMPILE_BACKEND=eager
-export MIOPEN_FIND_MODE=FAST
 export MIOPEN_DEBUG_CONV_DIRECT=0
 export TOKENIZERS_PARALLELISM=false
+# If T1.8 flash_attn test passed, try: export ACESTEP_LM_BACKEND=vllm
 ```
 
 ### 2.3 Inference tests
@@ -157,9 +162,12 @@ podman run -d --name acestep-service \
   --device /dev/dri --device /dev/kfd \
   --group-add video --group-add render \
   -p 7860:7860 \
-  -v ~/checkpoints:/root/.cache/huggingface \
+  -e ACESTEP_LM_BACKEND=pt -e ACESTEP_ROCM_DTYPE=float32 \
+  -e TORCH_COMPILE_BACKEND=eager -e MIOPEN_FIND_MODE=FAST \
+  -e ACESTEP_INIT_SERVICE=true \
+  -v ~/project/ACE-Step-1.5/checkpoints:/root/project/ACE-Step-1.5/checkpoints \
   kyuz0/vllm-therock-gfx1151:stable \
-  bash -c "source /opt/venv/bin/activate && python -m acestep.acestep_v15_pipeline --server-name 0.0.0.0"
+  bash -c "source /opt/venv/bin/activate && cd ~/project/ACE-Step-1.5 && python -m acestep.acestep_v15_pipeline --server-name 0.0.0.0 --init_service true --backend pt"
 ```
 
 **Option B: systemd user service**
