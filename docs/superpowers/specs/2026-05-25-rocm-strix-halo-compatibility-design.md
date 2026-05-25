@@ -27,10 +27,10 @@
 4. **torch.compile/Triton unreliable on ROCm** — Set `TORCH_COMPILE_BACKEND=eager` to prevent crashes.
 5. **bfloat16 defaults to float32 on Strix Halo** — `_resolve_rocm_dtype()` detects ROCm iGPU and uses float32 to avoid segfaults. Controllable via `ACESTEP_ROCM_DTYPE` env var.
 6. **torchao in requirements-rocm-linux.txt depends on Triton** — Will fail to install on ROCm. Must install separately with `--no-deps` or comment out.
-7. **MIOpen on gfx1151 has convolution correctness issues** — Not just slow, but actual errors reported (TheRock #2488). `MIOPEN_FIND_MODE=FAST` only helps with speed, not correctness.
+7. **MIOpen on gfx1151 has convolution correctness issues** — Not just slow, but actual errors reported (TheRock #2488). `MIOPEN_FIND_MODE=FAST` only helps with speed, not correctness. If T1.7 (Conv1d) fails, try `MIOPEN_DEBUG_CONV_DIRECT=0` or `MIOPEN_DEBUG_CONV_DIRECT_NAIVE_CONV_FWD=0`.
 8. **VRAM detection critical for APUs** — `rocm-smi` reports 512MB VRAM (BIOS frame buffer) despite 126GB GTT allocation. `torch.cuda.get_device_properties(0).total_memory` may report incorrectly, putting system in Tier 1 (worst). Must verify in Phase 1.
 9. **nano-vllm triton dependency gated on Python 3.11** — Using Python 3.12 avoids triton install. Do NOT use Python 3.11 with nano-vllm on ROCm.
-10. **ROCm container vs host version** — Available Docker image `rocm/pytorch:rocm7.2.2` has newer userspace (7.2.2) than host driver (7.1). ROCm requires host kernel driver >= container userspace. May need to verify forward compatibility.
+10. **ROCm container vs host version** — Available Docker image `rocm/pytorch:rocm7.2.2` has newer userspace (7.2.2) than host driver (7.1). ROCm provides backward compatibility (newer userspace on older driver) within release bounds. Verify at Phase 3 startup.
 
 ## Prerequisites
 
@@ -115,6 +115,7 @@ export ACESTEP_DEVICE=auto
 export ACESTEP_ROCM_DTYPE=float32
 export TORCH_COMPILE_BACKEND=eager
 export MIOPEN_FIND_MODE=FAST
+export MIOPEN_DEBUG_CONV_DIRECT=0
 export TOKENIZERS_PARALLELISM=false
 # If gfx1151 not in arch list:
 # export HSA_OVERRIDE_GFX_VERSION=11.0.0
@@ -175,6 +176,7 @@ ENV ACESTEP_LM_BACKEND=pt
 ENV ACESTEP_ROCM_DTYPE=float32
 ENV TORCH_COMPILE_BACKEND=eager
 ENV MIOPEN_FIND_MODE=FAST
+ENV MIOPEN_DEBUG_CONV_DIRECT=0
 ENV TOKENIZERS_PARALLELISM=false
 ENV ACESTEP_CONFIG_PATH=acestep-v15-turbo
 EXPOSE 7860 8001
