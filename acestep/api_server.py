@@ -50,6 +50,7 @@ from acestep.api.job_runtime_state import (
 )
 from acestep.api.startup_model_init import initialize_models_at_startup
 from acestep.api.worker_runtime import start_worker_tasks, stop_worker_tasks
+from acestep.api.openapi_schema_patch import patch_openapi
 from acestep.api.server_utils import (
     env_bool as _env_bool,
     get_model_name as _get_model_name,
@@ -312,7 +313,15 @@ def create_app() -> FastAPI:
                 executor=executor,
             )
 
-    app = FastAPI(title="ACE-Step API", version="1.0", lifespan=lifespan)
+    app = FastAPI(
+        title="ACE-Step API",
+        version="1.0",
+        lifespan=lifespan,
+        summary="AI music generation — text to music, cover, repaint, and more",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
+    )
 
     configure_api_routes(
         app=app,
@@ -350,6 +359,8 @@ def create_app() -> FastAPI:
         runtime_append_jsonl=_runtime_append_jsonl,
         create_sample=create_sample,
     )
+
+    patch_openapi(app)
 
     return app
 

@@ -18,6 +18,7 @@ from acestep.api.http.release_task_route import register_release_task_route
 from acestep.api.http.sample_format_routes import register_sample_format_routes
 from acestep.api.train_api_service import register_training_api_routes
 from acestep.openrouter_adapter import create_openrouter_router
+from acestep.api.agent_discovery_route import register_agent_discovery_route
 
 
 def configure_api_routes(
@@ -130,6 +131,8 @@ def configure_api_routes(
     )
 
     register_audio_route(app=app, verify_api_key=verify_api_key)
+
+    register_agent_discovery_route(app=app)
 
     register_release_task_route(
         app=app,

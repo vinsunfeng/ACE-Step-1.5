@@ -1,0 +1,434 @@
+# ACE-Step 1.5 — Full API Reference for Agents
+
+## Overview
+
+ACE-Step is an AI music generation system built on a Diffusion Transformer (DiT) architecture with an optional 5Hz Language Model (LM) for metadata completion and audio code generation. It produces full songs (vocals + instruments) as audio files.
+
+**Two server modes:**
+- **Gradio mode** (`python acestep/acestep_v15_pipeline.py`): UI + API on port 7860
+- **API-only mode** (`python -m acestep.api_server`): REST API on port 8010 (configurable via `--port` or `ACESTEP_API_PORT`)
+
+Both modes expose the same HTTP endpoints.
+
+## Authentication
+
+Optional. Set `ACESTEP_API_KEY` environment variable on the server. When enabled, clients must provide:
+- HTTP header: `Authorization: Bearer <key>`, OR
+- Request body field: `ai_token: "<key>"`
+
+---
+
+## Endpoints
+
+### Health Check
+
+```
+GET /health
+```
+
+Response:
+```json
+{"data": {"status": "ok", "service": "ACE-Step API", "version": "1.0"}, "code": 200, "error": null, "timestamp": 1234567890, "extra": null}
+```
+
+### List Models
+
+```
+GET /v1/models
+```
+
+Response:
+```json
+{
+  "data": {
+    "models": [{"name": "acestep-v15-chinese-lyric", "is_default": true}],
+    "default_model": "acestep-v15-chinese-lyric"
+  },
+  "code": 200
+}
+```
+
+### Download Audio
+
+```
+GET /v1/audio?path=<url-encoded-path>
+```
+
+Returns audio file. Supported MIME types: `audio/mpeg`, `audio/wav`, `audio/flac`, `audio/ogg`.
+
+---
+
+### Generate Music — `POST /release_task`
+
+The primary music generation endpoint. Accepts JSON or form-data.
+
+#### Request Fields
+
+**Text Input:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `prompt` | string | `""` | Text description of the desired music style, mood, instruments |
+| `lyrics` | string | `""` | Lyrics with section tags. Use `[inst]` or `[instrumental]` for instrumental tracks |
+| `vocal_language` | string | `"en"` | Language code: `en`, `zh`, `ja`, `ko`, `fr`, `de`, `es`, `bn`, etc. |
+| `global_caption` | string | `""` | Global description for lego multi-track tasks |
+
+**Music Metadata:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `bpm` | int | null | Beats per minute (typically 60–200) |
+| `key_scale` | string | `""` | Musical key and scale, e.g. `"C major"`, `"A minor"`, `"F# major"` |
+| `time_signature` | string | `""` | Time signature, e.g. `"4/4"`, `"3/4"`, `"6/8"` |
+| `audio_duration` | float | null | Target duration in seconds |
+
+**Generation Control:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `task_type` | string | `"text2music"` | Task type (see Task Types below) |
+| `inference_steps` | int | `8` | Diffusion steps (more = higher quality, slower) |
+| `guidance_scale` | float | `7.0` | Classifier-free guidance scale |
+| `seed` | int/string | `-1` | Random seed. `-1` = random. Comma-separated string for batch: `"42,123,456"` |
+| `batch_size` | int | `2` | Number of audio samples to generate |
+| `audio_format` | string | `"mp3"` | Output format: `mp3`, `flac`, `wav`, `opus`, `aac`, `wav32` |
+| `infer_method` | string | `"ode"` | Diffusion method: `"ode"` or `"sde"` |
+| `shift` | float | `3.0` | Timestep shift factor (1.0–5.0). Only for base models, not turbo |
+| `timesteps` | string | null | Custom timesteps (comma-separated). Overrides `inference_steps` and `shift` |
+
+**LM (Language Model) Parameters:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `thinking` | bool | `false` | Use 5Hz LM to generate audio codes (LM-DiT behavior) |
+| `lm_temperature` | float | `0.85` | LM sampling temperature |
+| `lm_cfg_scale` | float | `2.5` | LM classifier-free guidance scale |
+| `lm_top_p` | float | `0.9` | LM nucleus sampling threshold |
+| `sample_mode` | bool | `false` | Auto-generate caption/lyrics/metas via LM |
+| `sample_query` | string | `""` | Query for sample mode (e.g. "a chill jazz song") |
+| `use_format` | bool | `false` | Use LLM to enhance/structure input caption and lyrics |
+
+**Audio Editing (for cover/repaint/complete tasks):**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `src_audio_path` | string | null | Source audio file path (for cover, repaint, complete, lego) |
+| `reference_audio_path` | string | null | Reference audio for style transfer |
+| `repainting_start` | float | `0.0` | Repaint region start in seconds |
+| `repainting_end` | float | null | Repaint region end in seconds |
+| `repaint_mode` | string | `"balanced"` | `"conservative"`, `"balanced"`, or `"aggressive"` |
+| `repaint_strength` | float | `0.5` | Repaint intensity (0.0=keep source, 1.0=full diffusion) |
+| `audio_cover_strength` | float | `1.0` | Cover strength (0.0–1.0) |
+| `cover_noise_strength` | float | `0.0` | Cover noise blending (0=pure noise, 1=closest to source) |
+| `repaint_latent_crossfade_frames` | int | `10` | Latent-level boundary blend in frames (25Hz) |
+| `repaint_wav_crossfade_sec` | float | `0.0` | Waveform crossfade in seconds |
+
+**Model Selection:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `model` | string | null | Model name to use (e.g. `"acestep-v15-turbo"`) for multi-model setups |
+
+#### Example: Simple Text-to-Music
+
+```json
+{
+  "prompt": "A dreamy synth-pop song with ethereal vocals and a driving bassline",
+  "lyrics": "[Verse]\nUnder neon lights we fade\nInto colors never made\n[Chorus]\nWe are infinite tonight\nDancing till the morning light",
+  "audio_duration": 45,
+  "vocal_language": "en",
+  "bpm": 120,
+  "key_scale": "C major"
+}
+```
+
+#### Example: Instrumental
+
+```json
+{
+  "prompt": "chill lo-fi hip hop beat with vinyl crackle and jazz piano samples",
+  "lyrics": "[inst]",
+  "audio_duration": 60,
+  "audio_format": "flac"
+}
+```
+
+#### Example: Sample Mode (auto-generate everything from a description)
+
+```json
+{
+  "sample_mode": true,
+  "sample_query": "a romantic French chanson with accordion",
+  "vocal_language": "fr"
+}
+```
+
+#### Example: With Reproducible Seed
+
+```json
+{
+  "prompt": "epic orchestral battle theme",
+  "lyrics": "[inst]",
+  "seed": 42,
+  "audio_duration": 90,
+  "inference_steps": 16,
+  "guidance_scale": 10.0
+}
+```
+
+#### Response
+
+```json
+{
+  "data": {
+    "task_id": "f80b27c8-25ae-42dd-5fbf-12324990f0d2",
+    "status": "succeeded"
+  },
+  "code": 200,
+  "error": null,
+  "timestamp": 1234567890000,
+  "extra": null
+}
+```
+
+Use `task_id` with `/query_result` to retrieve detailed metadata and audio URLs.
+
+---
+
+### Query Results — `POST /query_result`
+
+```json
+{
+  "task_id_list": ["uuid-1", "uuid-2"]
+}
+```
+
+Response:
+```json
+{
+  "data": [
+    {
+      "task_id": "uuid-1",
+      "status": 1,
+      "result": "[{\"file\":\"/path/to/audio.mp3\",\"url\":\"/v1/audio?path=...\",\"status\":1,\"seed\":42,\"caption\":\"...\",\"bpm\":120,\"duration\":45}]"
+    }
+  ],
+  "code": 200
+}
+```
+
+`status`: `1` = succeeded, `0` = pending/failed.
+
+The `result` field is a JSON-encoded array of audio objects, each containing:
+- `file` — local path
+- `url` — relative download URL
+- `seed` — actual seed used
+- `caption` — CoT-derived or input caption
+- `lyrics` — CoT-derived or input lyrics
+- `bpm`, `duration`, `keyscale`, `timesignature`, `vocal_language`
+
+---
+
+### OpenRouter Compatible — `POST /v1/chat/completions`
+
+Drop-in replacement for OpenAI/OpenRouter chat completions API. Returns audio as base64 data URLs.
+
+#### Request
+
+```json
+{
+  "model": "acestep/acestep-v15-chinese-lyric",
+  "messages": [
+    {"role": "user", "content": "A chill lo-fi hip hop beat"}
+  ],
+  "stream": false,
+  "audio_config": {
+    "format": "mp3",
+    "duration": 30,
+    "bpm": 85,
+    "vocal_language": "en",
+    "instrumental": true
+  }
+}
+```
+
+**Advanced message parsing:**
+- Text is auto-detected as prompt or lyrics based on section tags (`[Verse]`, `[Chorus]`, etc.)
+- Use `<prompt>...</prompt>` and `<lyrics>...</lyrics>` tags for explicit separation
+- Attach audio via `"type": "input_audio"` content blocks (base64)
+
+**Extended fields on the request:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `task_type` | string | `"text2music"` | Same task types as `/release_task` |
+| `thinking` | bool | `false` | Use LM for audio code generation |
+| `guidance_scale` | float | `7.0` | Classifier-free guidance |
+| `inference_steps` | int | `8` | Diffusion steps |
+| `batch_size` | int | `1` | Number of samples |
+| `seed` | int/string | null | Seed(s) for reproducibility |
+| `lyrics` | string | `""` | Direct lyrics (bypass message parsing) |
+| `sample_mode` | bool | `false` | Auto-generate from user message |
+| `use_format` | bool | `false` | LLM-enhance input |
+
+#### Streaming (`stream: true`)
+
+Returns SSE (Server-Sent Events):
+```
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant","content":""}}]}
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","choices":[{"delta":{"content":"."}}]}
+...
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","choices":[{"delta":{"content":"\n\n## Metadata\n..."},"finish_reason":null}]}
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","choices":[{"delta":{"audio":[{"type":"audio_url","audio_url":{"url":"data:audio/mpeg;base64,..."}}]},"finish_reason":null}]}
+data: {"id":"chatcmp-...","choices":[{"delta":{},"finish_reason":"stop"}]}
+data: [DONE]
+```
+
+#### Non-Streaming Response
+
+```json
+{
+  "id": "chatcmpl-abc123",
+  "object": "chat.completion",
+  "created": 1234567890,
+  "model": "acestep/acestep-v15-chinese-lyric",
+  "choices": [{
+    "index": 0,
+    "message": {
+      "role": "assistant",
+      "content": "## Metadata\n**Caption:** ...\n**BPM:** 120\n\n## Lyrics\n...",
+      "audio": [{"type": "audio_url", "audio_url": {"url": "data:audio/mpeg;base64,..."}}]
+    },
+    "finish_reason": "stop"
+  }],
+  "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+}
+```
+
+---
+
+### Helper Endpoints
+
+#### `POST /create_random_sample`
+
+Returns random pre-built example parameters. Fields: `sample_type` (`"simple_mode"` or `"custom_mode"`).
+
+```json
+{"sample_type": "simple_mode"}
+→ {"data": {"description": "a soft Bengali love song", "instrumental": false, "vocal_language": "bn"}, "code": 200}
+```
+
+#### `POST /format_input`
+
+Uses LLM to enhance and structure raw caption/lyrics input.
+
+```json
+{
+  "prompt": "upbeat pop song",
+  "lyrics": "hello world sing with me",
+  "temperature": 0.85
+}
+
+→ {
+  "data": {
+    "caption": "An energetic pop track with bright synth melodies...",
+    "lyrics": "[Verse]\nHello world\n[Chorus]\nSing with me tonight...",
+    "bpm": 128,
+    "key_scale": "C major",
+    "time_signature": "4/4",
+    "duration": 180,
+    "vocal_language": "en"
+  }
+}
+```
+
+---
+
+## Task Types
+
+| Task Type | Input Required | Description |
+|-----------|---------------|-------------|
+| `text2music` | `prompt` + optional `lyrics` | Generate music from text description |
+| `cover` | Source audio + `prompt` | Re-imagine a song in a new style |
+| `cover-nofsq` | Source audio + `prompt` | Cover without FSEQ processing |
+| `repaint` | Source audio + `repainting_start/end` | Regenerate a specific time region |
+| `complete` | Source audio | Continue/extend from existing audio |
+| `extract` | Source audio | Extract audio codes |
+| `lego` | Track-specific params | Multi-track composition |
+
+---
+
+## Lyrics Format
+
+Use section tags to structure lyrics:
+```
+[Intro]
+[Verse 1]
+First verse lyrics here
+[Pre-Chorus]
+Building up...
+[Chorus]
+The hook goes here
+[Verse 2]
+Second verse lyrics
+[Bridge]
+Something different
+[Chorus]
+The hook again
+[Outro]
+```
+
+For instrumental music, use: `[inst]` or `[instrumental]`
+
+Supported languages: `en`, `zh`, `ja`, `ko`, `fr`, `de`, `es`, `pt`, `it`, `ru`, `bn`, `ar`, `hi`, and more.
+
+---
+
+## Error Handling
+
+All responses follow the same envelope:
+```json
+{
+  "data": null,
+  "code": 500,
+  "error": "Error message describing what went wrong",
+  "timestamp": 1234567890000,
+  "extra": null
+}
+```
+
+Common error codes:
+- `400` — Invalid request parameters
+- `401` — Missing or invalid API key
+- `403` — Path traversal or access denied
+- `404` — Audio file not found
+- `429` — Queue full, server busy
+- `500` — Internal error (model not initialized, generation failed)
+- `503` — Model not initialized
+- `504` — Generation timeout
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ACESTEP_API_KEY` | (none) | API authentication key |
+| `ACESTEP_QUEUE_MAXSIZE` | `200` | Maximum queued jobs |
+| `ACESTEP_QUEUE_WORKERS` | `1` | Parallel GPU workers |
+| `ACESTEP_AVG_JOB_SECONDS` | `5.0` | Initial average job time estimate |
+| `ACESTEP_GENERATION_TIMEOUT` | `600` | Timeout for OpenRouter requests (seconds) |
+
+---
+
+## Self-Discovery Endpoints
+
+| URL | Description |
+|-----|-------------|
+| `GET /openapi.json` | OpenAPI 3.0 specification (machine-readable) |
+| `GET /docs` | Swagger UI (interactive documentation) |
+| `GET /redoc` | ReDoc documentation |
+| `GET /health` | Service health + status |
+| `GET /v1/models` | Available model list |
+| `/llms.txt` | This file (concise overview) |
+| `/llms-full.txt` | Full API reference |

@@ -1,0 +1,110 @@
+# ACE-Step 1.5 — AI Music Generator
+
+> ACE-Step is an AI music generation system. Given a text description and optional lyrics, it produces full songs (vocals + instruments) as audio files.
+
+## Quick Start (HTTP API)
+
+**Base URL:** `http://localhost:8010` (API-only mode) or `http://localhost:7860` (Gradio mode)
+
+**Auth:** Optional. Set `ACESTEP_API_KEY` env var; then pass `Authorization: Bearer <key>` header or `ai_token` field in request body.
+
+### Health Check
+
+```
+GET /health
+→ {"data": {"status": "ok"}, "code": 200}
+```
+
+### List Models
+
+```
+GET /v1/models
+→ {"data": {"models": [{"name": "acestep-v15-chinese-lyric", "is_default": true}], "default_model": "..."}}
+```
+
+### Generate Music (simple — one request, one response)
+
+```
+POST /release_task
+Content-Type: application/json
+
+{
+  "prompt": "upbeat pop song with catchy synth hooks",
+  "lyrics": "[Verse]\nHello world\n[Chorus]\nSing with me",
+  "audio_duration": 30,
+  "vocal_language": "en"
+}
+
+→ {"data": {"task_id": "uuid", "status": "succeeded"}, "code": 200}
+```
+
+Key parameters for `/release_task`:
+- `prompt` (string) — description of the music style/mood
+- `lyrics` (string) — lyrics with section tags `[Verse]`, `[Chorus]`, `[Bridge]`, etc. Use `[inst]` for instrumental
+- `audio_duration` (float) — target duration in seconds (default: model decides)
+- `vocal_language` (string) — language code: `en`, `zh`, `ja`, `ko`, etc.
+- `bpm` (int) — beats per minute
+- `key_scale` (string) — musical key, e.g. `"C major"`, `"A minor"`
+- `seed` (int) — reproducibility seed (-1 = random)
+- `task_type` (string) — `"text2music"` (default), `"cover"`, `"repaint"`, `"complete"`, `"lego"`
+
+### Query Results
+
+```
+POST /query_result
+{"task_id_list": ["uuid-1", "uuid-2"]}
+
+→ {"data": [{"task_id": "uuid-1", "status": 1, "result": "{...}"}], "code": 200}
+```
+
+### Download Audio
+
+```
+GET /v1/audio?path=<encoded-path>
+```
+
+### OpenRouter Compatible (Chat Completions)
+
+```
+POST /v1/chat/completions
+Content-Type: application/json
+
+{
+  "model": "acestep/acestep-v15-chinese-lyric",
+  "messages": [{"role": "user", "content": "A chill lo-fi hip hop beat"}],
+  "stream": false
+}
+
+→ Standard OpenAI chat completion format with base64-encoded audio in response
+```
+
+Supports `stream: true` for SSE (Server-Sent Events).
+
+### LLM Helper Endpoints
+
+- `POST /create_random_sample` — get random example parameters
+- `POST /format_input` — enhance caption/lyrics via LLM (`{"prompt": "...", "lyrics": "..."}`)
+
+### Auto-Discovery
+
+- `GET /openapi.json` — machine-readable OpenAPI 3.0 spec
+- `GET /docs` — interactive Swagger UI
+- `GET /redoc` — ReDoc documentation
+
+## Task Types
+
+| Type | Description | Required Extra Input |
+|------|-------------|---------------------|
+| `text2music` | Text description to music | `prompt` |
+| `cover` | Cover a song with new style | `src_audio_path` or base64 audio in chat |
+| `repaint` | Regenerate a section | `src_audio_path` + `repainting_start`/`repainting_end` |
+| `complete` | Continue from existing audio | `src_audio_path` |
+| `lego` | Multi-track composition | track-specific params |
+
+## Output Formats
+
+`mp3` (default), `flac`, `wav`, `opus`, `aac`, `wav32`. Set via `audio_format` field.
+
+## More Details
+
+See [llms-full.txt](./llms-full.txt) for complete parameter reference and advanced usage.
