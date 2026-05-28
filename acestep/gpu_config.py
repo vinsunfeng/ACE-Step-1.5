@@ -1235,6 +1235,9 @@ def compute_adaptive_config(total_vram_gb: float, dit_type: str = "turbo") -> GP
     if is_rocm_available():
         config = _apply_rocm_overrides(config)
     return _apply_lm_backend_compatibility_overrides(config)
+
+
+def get_effective_free_vram_gb(device_index: int = 0) -> float:
     """
     Get the effective free VRAM in GB, accounting for PyTorch allocator cache and
     per-process memory fraction.
