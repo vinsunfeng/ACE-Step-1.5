@@ -940,6 +940,8 @@ def get_gpu_config(gpu_memory_gb: Optional[float] = None) -> GPUConfig:
         if _mps
         else 512,
     )
+    if is_rocm_available() and not _mps:
+        config = _apply_rocm_overrides(config)
     return _apply_lm_backend_compatibility_overrides(config)
 
 
@@ -1227,10 +1229,9 @@ def compute_adaptive_config(total_vram_gb: float, dit_type: str = "turbo") -> GP
         compile_model_default=tier_config.get("compile_model_default", True),
         lm_memory_gb=lm_memory_gb,
     )
+    if is_rocm_available():
+        config = _apply_rocm_overrides(config)
     return _apply_lm_backend_compatibility_overrides(config)
-
-
-def get_effective_free_vram_gb(device_index: int = 0) -> float:
     """
     Get the effective free VRAM in GB, accounting for PyTorch allocator cache and
     per-process memory fraction.
@@ -1604,6 +1605,9 @@ def get_gpu_config_for_tier(tier: str) -> GPUConfig:
         if _mps
         else 512,
     )
+    _rocm = is_rocm_available()
+    if _rocm and not _mps:
+        config = _apply_rocm_overrides(config)
     return _apply_lm_backend_compatibility_overrides(config)
 
 

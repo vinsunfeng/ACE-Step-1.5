@@ -96,5 +96,39 @@ class TestApplyRocmOverrides(unittest.TestCase):
         self.assertTrue(result.compile_model_default)
 
 
+class TestRocmOverridesInGetGpuConfig(unittest.TestCase):
+    """Verify ROCm overrides are applied in get_gpu_config flow."""
+
+    @patch("acestep.gpu_config.is_rocm_available", return_value=True)
+    @patch("acestep.gpu_config.is_rocm_consumer_gpu", return_value=True)
+    @patch("acestep.gpu_config.get_gpu_memory_gb", return_value=62.5)
+    @patch("acestep.gpu_config.is_mps_platform", return_value=False)
+    def test_consumer_overrides_applied(self, mock_mps, mock_mem, mock_consumer, mock_rocm):
+        from acestep.gpu_config import get_gpu_config
+        config = get_gpu_config()
+        self.assertFalse(config.compile_model_default)
+        self.assertEqual(config.recommended_backend, "pt")
+
+    @patch("acestep.gpu_config.is_rocm_available", return_value=True)
+    @patch("acestep.gpu_config.is_rocm_consumer_gpu", return_value=False)
+    @patch("acestep.gpu_config.get_gpu_memory_gb", return_value=62.5)
+    @patch("acestep.gpu_config.is_mps_platform", return_value=False)
+    def test_datacenter_keeps_compile(self, mock_mps, mock_mem, mock_consumer, mock_rocm):
+        from acestep.gpu_config import get_gpu_config
+        config = get_gpu_config()
+        self.assertTrue(config.compile_model_default)
+        self.assertEqual(config.recommended_backend, "pt")
+
+    @patch("acestep.gpu_config.is_rocm_available", return_value=True)
+    @patch("acestep.gpu_config.is_rocm_consumer_gpu", return_value=True)
+    @patch("acestep.gpu_config.get_gpu_memory_gb", return_value=62.5)
+    @patch("acestep.gpu_config.is_mps_platform", return_value=False)
+    def test_tier_override_survives_manual_selection(self, mock_mps, mock_mem, mock_consumer, mock_rocm):
+        from acestep.gpu_config import get_gpu_config_for_tier
+        config = get_gpu_config_for_tier("tier5")
+        self.assertFalse(config.compile_model_default)
+        self.assertEqual(config.recommended_backend, "pt")
+
+
 if __name__ == "__main__":
     unittest.main()
