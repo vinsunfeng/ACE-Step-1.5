@@ -321,6 +321,19 @@ def _apply_lm_backend_compatibility_overrides(config: GPUConfig) -> GPUConfig:
     return config
 
 
+def _apply_rocm_overrides(config: GPUConfig) -> GPUConfig:
+    """Apply ROCm-specific post-construction overrides."""
+    if not is_rocm_available():
+        return config
+
+    if is_rocm_consumer_gpu():
+        config.compile_model_default = False
+
+    config.recommended_backend = "pt"
+
+    return config
+
+
 def resolve_lm_backend(
     requested_backend: Optional[str],
     gpu_config: Optional["GPUConfig"] = None,

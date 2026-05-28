@@ -51,5 +51,50 @@ class TestIsRocmConsumerGpu(unittest.TestCase):
         self.assertFalse(is_rocm_consumer_gpu())
 
 
+class TestApplyRocmOverrides(unittest.TestCase):
+    """_apply_rocm_overrides patches GPUConfig for ROCm correctly."""
+
+    def _make_config(self):
+        from acestep.gpu_config import GPUConfig
+        return GPUConfig(
+            tier="unlimited", gpu_memory_gb=62.5,
+            max_duration_with_lm=600, max_duration_without_lm=600,
+            max_batch_size_with_lm=8, max_batch_size_without_lm=8,
+            init_lm_default=True,
+            available_lm_models=["acestep-5Hz-lm-4B"],
+            recommended_lm_model="acestep-5Hz-lm-4B",
+            lm_backend_restriction="all", recommended_backend="vllm",
+            offload_to_cpu_default=False, offload_dit_to_cpu_default=False,
+            quantization_default=False, compile_model_default=True,
+            lm_memory_gb={"0.6B": 3, "1.7B": 8, "4B": 12},
+        )
+
+    @patch("acestep.gpu_config.is_rocm_available", return_value=True)
+    @patch("acestep.gpu_config.is_rocm_consumer_gpu", return_value=True)
+    def test_consumer_gpu_disables_compile(self, mock_consumer, mock_rocm):
+        from acestep.gpu_config import _apply_rocm_overrides
+        config = self._make_config()
+        result = _apply_rocm_overrides(config)
+        self.assertFalse(result.compile_model_default)
+        self.assertEqual(result.recommended_backend, "pt")
+
+    @patch("acestep.gpu_config.is_rocm_available", return_value=True)
+    @patch("acestep.gpu_config.is_rocm_consumer_gpu", return_value=False)
+    def test_datacenter_keeps_compile(self, mock_consumer, mock_rocm):
+        from acestep.gpu_config import _apply_rocm_overrides
+        config = self._make_config()
+        result = _apply_rocm_overrides(config)
+        self.assertTrue(result.compile_model_default)
+        self.assertEqual(result.recommended_backend, "pt")
+
+    @patch("acestep.gpu_config.is_rocm_available", return_value=False)
+    def test_noop_when_not_rocm(self, mock_rocm):
+        from acestep.gpu_config import _apply_rocm_overrides
+        config = self._make_config()
+        result = _apply_rocm_overrides(config)
+        self.assertEqual(result.recommended_backend, "vllm")
+        self.assertTrue(result.compile_model_default)
+
+
 if __name__ == "__main__":
     unittest.main()
