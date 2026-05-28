@@ -184,3 +184,51 @@ def inject_lora_into_dit(
 - [ ] Required docstrings are present for all new/modified modules, classes, and functions.
 - [ ] WIP/unstable functionality is feature-flagged and not exposed as default-ready behavior.
 - [ ] Module LOC policy is met (`<=150` target, `<=200` hard cap or justified exception).
+
+## Music Generation MCP Server
+
+An MCP server wrapping the ACE-Step API is available at `mcp/acestep_mcp_server.py`.
+
+### Codex MCP Configuration
+
+Add to your Codex MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "acestep": {
+      "command": "python",
+      "args": ["mcp/acestep_mcp_server.py"],
+      "env": {
+        "ACESTEP_API_URL": "http://localhost:8010",
+        "ACESTEP_API_KEY": "acestep-rocm"
+      }
+    }
+  }
+}
+```
+
+### MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `generate_music` | Generate audio from text description, lyrics, and optional metadata |
+| `list_models` | List available music generation models |
+| `enhance_prompt` | Use LLM to structure raw prompt/lyrics into generation parameters |
+| `check_health` | Check API server health and model load status |
+
+### Usage Example
+
+Generate a 30-second jazz instrumental:
+
+```
+generate_music(
+    prompt="Relaxing jazz piano with brush drums and upright bass",
+    lyrics="[inst]",
+    duration=30,
+    format="mp3"
+)
+```
+
+Lyrics use section tags: `[Verse]`, `[Chorus]`, `[Bridge]`, `[Intro]`, `[Outro]`.
+For instrumental only, set `lyrics="[inst]"` or `instrumental=True`.
