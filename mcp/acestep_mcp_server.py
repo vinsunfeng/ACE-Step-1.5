@@ -11,7 +11,77 @@ from mcp.server.fastmcp import FastMCP
 API_URL = os.getenv("ACESTEP_API_URL", "http://localhost:8010").rstrip("/")
 API_KEY = os.getenv("ACESTEP_API_KEY", "")
 
-mcp = FastMCP("acestep", instructions="ACE-Step music generation. Use generate_music to create audio from text.")
+_CAPTION_GUIDE = """\
+## How to Write Captions for ACE-Step
+
+A good caption describes the music in natural language, covering style, instruments, mood, and tempo.
+
+### Caption Examples (good)
+- "A dreamy synth-pop song with ethereal vocals and a driving bassline"
+- "Chill lo-fi hip hop beat with vinyl crackle, jazz piano samples, and laid-back drums"
+- "Epic orchestral battle theme with brass fanfares, timpani rolls, and string ostinatos"
+- "A heartfelt Korean folk ballad with gayageum, acoustic guitar, and gentle percussion"
+- "Upbeat funk track with slap bass, wah-wah guitar, tight horn stabs, and a groovy drum break"
+
+### Caption Tips
+- Be specific about instruments: "jazz piano with brush drums" > "nice music"
+- Include mood/adjectives: "melancholic", "energetic", "ethereal", "raw"
+- Mention genre when helpful: "bossa nova", "drum and bass", "ambient"
+- Include vocal style if applicable: "breathy female vocals", "deep male baritone"
+
+### Lyrics Format
+Use section tags to structure lyrics:
+```
+[Intro]
+[Verse 1]
+First verse lyrics here
+[Pre-Chorus]
+Building up...
+[Chorus]
+The hook goes here
+[Verse 2]
+Second verse lyrics
+[Bridge]
+Something different
+[Chorus]
+[Outro]
+```
+For instrumental tracks, use `lyrics="[inst]"` or set `instrumental=True`.
+
+### Lyrics Writing Rules
+- **Length matches duration**: ~2-3 syllables per second of music.
+  - 10-30s clip: 1 verse + 1 chorus (~4-8 lines)
+  - 60s song: 2 verses + 2 choruses + bridge (~12-20 lines)
+  - 120-240s full song: full structure with intro/outro (~24-40 lines)
+- **Rhyme**: Adjacent lines should rhyme (AABB or ABAB). Chinese: 押韵脚。
+- **Repetition**: Chorus should repeat at least twice. Hooks need repetition.
+- **Syllable rhythm**: Keep syllable counts consistent across parallel lines.
+  - Good: "Walking in the rain (5) / Feeling so much pain (5)"
+  - Bad: "Walking in the rain (5) / I feel pain (3)"
+- **Language match**: Set vocal_language to match the lyrics language.
+  - Chinese: zh (supports 粤语 with vocal_language="yue")
+  - Japanese: ja (hiragana/katakana preferred over kanji)
+  - Korean: ko (hangul only)
+- **Avoid**: Overly long words, tongue twisters, too many consecutive
+  consonants — these cause vocal artifacts.
+- **Section balance**: Chorus = most memorable part. Verse = storytelling.
+  Bridge = contrast (different melody/feel).
+
+### Metadata Ranges
+- BPM: 60-200 (60=ballad, 85=lo-fi, 120=pop, 140=EDM, 170=drum&bass)
+- Key: "C major", "A minor", "F# major", "Bb minor", etc.
+- Duration: 10-300 seconds (short clips: 10-30, full song: 120-240)
+- Time signature: "4/4" (default), "3/4" (waltz), "6/8" (ballad)
+- Languages: en, zh, ja, ko, fr, de, es, pt, it, ru, bn, ar, hi, yue, and 35 more
+
+### Workflow
+1. Write a detailed caption (or let the user describe what they want)
+2. Write lyrics with section tags if vocals are needed
+3. Set appropriate BPM, key, duration, vocal_language
+4. Call generate_music with these parameters
+"""
+
+mcp = FastMCP("acestep", instructions=_CAPTION_GUIDE)
 
 
 def _headers(content_type: str = "application/json") -> dict[str, str]:
@@ -206,6 +276,55 @@ def enhance_prompt(
         lines.append(f"  Duration: {data['duration']}s")
     if "vocal_language" in data:
         lines.append(f"  Language: {data['vocal_language']}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def get_examples(style: str = "full") -> str:
+    """Get example music generation parameters from ACE-Step's sample pool.
+
+    Useful when you need inspiration or want to see the expected format
+    for captions, lyrics, and metadata.
+
+    Args:
+        style: "simple" for short descriptions, "full" for complete examples
+            with lyrics, BPM, key, and duration.
+    """
+    sample_type = "simple_mode" if style == "simple" else "custom_mode"
+    r = _request("POST", "/create_random_sample", {"sample_type": sample_type})
+
+    if r.get("error"):
+        return f"Failed to get examples: {r['error']}"
+
+    data = r.get("data", {})
+    if not data:
+        return "No example data available."
+
+    lines = ["Example generation parameters:"]
+    if "caption" in data:
+        lines.append(f"  Caption: {data['caption']}")
+    if "description" in data:
+        lines.append(f"  Description: {data['description']}")
+    if "lyrics" in data:
+        lyrics = data["lyrics"]
+        if len(lyrics) > 300:
+            lyrics = lyrics[:300] + "..."
+        lines.append(f"  Lyrics: {lyrics}")
+    if "bpm" in data:
+        lines.append(f"  BPM: {data['bpm']}")
+    if "keyscale" in data:
+        lines.append(f"  Key: {data['keyscale']}")
+    if "duration" in data:
+        lines.append(f"  Duration: {data['duration']}s")
+    if "language" in data:
+        lines.append(f"  Language: {data['language']}")
+    if "vocal_language" in data:
+        lines.append(f"  Vocal language: {data['vocal_language']}")
+    if "timesignature" in data:
+        lines.append(f"  Time sig: {data['timesignature']}")
+    if "instrumental" in data:
+        lines.append(f"  Instrumental: {data['instrumental']}")
+    lines.append("\nCall get_examples again for more samples.")
     return "\n".join(lines)
 
 
