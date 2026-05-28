@@ -37,7 +37,7 @@ VRAM_AUTO_OFFLOAD_THRESHOLD_GB = 20.0
 
 # PyTorch installation URLs for diagnostics
 PYTORCH_CUDA_INSTALL_URL = "https://download.pytorch.org/whl/cu121"
-PYTORCH_ROCM_INSTALL_URL = "https://download.pytorch.org/whl/rocm6.0"
+PYTORCH_ROCM_INSTALL_URL = "https://download.pytorch.org/whl/rocm6.3"
 VALID_LM_BACKENDS = {"vllm", "pt", "mlx"}
 
 
@@ -735,6 +735,9 @@ def _log_gpu_diagnostic_info(torch_module):
                 "       - RX 7800 XT, RX 7700 XT: set HSA_OVERRIDE_GFX_VERSION=11.0.1"
             )
             logger.warning("       - RX 7600: set HSA_OVERRIDE_GFX_VERSION=11.0.2")
+            logger.warning(
+                "       - Strix Halo (Ryzen AI MAX+ 395): set HSA_OVERRIDE_GFX_VERSION=11.5.1"
+            )
 
         logger.warning("")
         logger.warning("Troubleshooting steps:")
