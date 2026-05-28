@@ -1,18 +1,23 @@
-"""Agent discovery endpoint — GET /.well-known/agent.
+"""Agent discovery endpoints — /.well-known/agent, /llms.txt, /llms-full.txt.
 
-Returns a machine-readable capability document so AI agents can
-understand what the service offers without reading source code.
+Returns machine-readable documents so AI agents can understand what the
+service offers and how to integrate with it.
 """
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def register_agent_discovery_route(app: FastAPI) -> None:
-    """Register the agent discovery endpoint on the FastAPI app."""
+    """Register agent discovery and llms.txt routes on the FastAPI app."""
 
     @app.get(
         "/.well-known/agent",
@@ -48,4 +53,47 @@ def register_agent_discovery_route(app: FastAPI) -> None:
             "docs_url": "/docs",
             "llms_txt_url": "/llms.txt",
             "llms_full_txt_url": "/llms-full.txt",
+            "mcp_server": {
+                "description": "MCP server wrapping this API for agent tool use",
+                "source": "mcp/acestep_mcp_server.py",
+                "tools": [
+                    "generate_music",
+                    "list_models",
+                    "enhance_prompt",
+                    "check_health",
+                ],
+                "config": {
+                    "ACESTEP_API_URL": "http://localhost:8010",
+                    "ACESTEP_API_KEY": "optional API key",
+                },
+            },
+            "agent_skills": {
+                "hermes": "mcp/hermes-skill/SKILL.md",
+                "claude_code": "CLAUDE.md",
+                "codex": "AGENTS.md",
+            },
         }
+
+    @app.get(
+        "/llms.txt",
+        tags=["Agent Discovery"],
+        summary="Concise API overview for agents",
+        response_class=PlainTextResponse,
+    )
+    async def llms_txt() -> str:
+        path = _PROJECT_ROOT / "llms.txt"
+        if path.exists():
+            return path.read_text(encoding="utf-8")
+        return "# llms.txt not found\n"
+
+    @app.get(
+        "/llms-full.txt",
+        tags=["Agent Discovery"],
+        summary="Full API reference for agents",
+        response_class=PlainTextResponse,
+    )
+    async def llms_full_txt() -> str:
+        path = _PROJECT_ROOT / "llms-full.txt"
+        if path.exists():
+            return path.read_text(encoding="utf-8")
+        return "# llms-full.txt not found\n"

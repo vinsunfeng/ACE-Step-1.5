@@ -59,7 +59,7 @@ To add ACE-Step MCP server to Claude Code settings:
       "args": ["mcp/acestep_mcp_server.py"],
       "env": {
         "ACESTEP_API_URL": "http://localhost:8010",
-        "ACESTEP_API_KEY": "acestep-rocm"
+        "ACESTEP_API_KEY": "${ACESTEP_API_KEY}"
       }
     }
   }
