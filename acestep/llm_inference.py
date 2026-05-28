@@ -25,7 +25,14 @@ from transformers.generation.logits_process import (
 from acestep.llm_backend_compat import get_vllm_preflight_warning
 from acestep.constrained_logits_processor import MetadataConstrainedLogitsProcessor
 from acestep.constants import DEFAULT_LM_INSTRUCTION, DEFAULT_LM_UNDERSTAND_INSTRUCTION, DEFAULT_LM_INSPIRED_INSTRUCTION, DEFAULT_LM_REWRITE_INSTRUCTION, DURATION_MIN, DURATION_MAX
-from acestep.gpu_config import get_lm_gpu_memory_ratio, get_gpu_memory_gb, get_lm_model_size, get_global_gpu_config
+from acestep.gpu_config import (
+    get_lm_gpu_memory_ratio,
+    get_gpu_memory_gb,
+    get_lm_model_size,
+    get_global_gpu_config,
+    is_rocm_available,
+    cuda_supports_bfloat16,
+)
 
 # Minimum free VRAM (GB) required to attempt vLLM initialization.
 # vLLM's KV cache allocator adapts to available memory, so we only need a
@@ -570,7 +577,17 @@ class LLMHandler:
             # The DiT and VAE use float16 on MPS where it actually helps throughput.
             if dtype is None:
                 if device in ["cuda", "xpu"]:
-                    self.dtype = torch.bfloat16
+                    _is_rocm = is_rocm_available()
+                    if _is_rocm and not cuda_supports_bfloat16():
+                        self.dtype = torch.float32
+                    elif _is_rocm:
+                        rocm_dtype = os.getenv("ACESTEP_ROCM_DTYPE", "").lower()
+                        if rocm_dtype in ("float32", "fp32"):
+                            self.dtype = torch.float32
+                        else:
+                            self.dtype = torch.bfloat16
+                    else:
+                        self.dtype = torch.bfloat16
                 else:
                     self.dtype = torch.float32
             else:
@@ -639,7 +656,7 @@ class LLMHandler:
             # synchronisation that is forbidden inside torch.cuda.CUDAGraph capture,
             # corrupting the CUDA context and causing downstream errors such as:
             #   RuntimeError: Offset increment outside graph capture encountered unexpectedly
-            is_rocm = hasattr(torch.version, 'hip') and torch.version.hip is not None
+            is_rocm = is_rocm_available()
             is_jetson = False
             if device == "cuda" and torch.cuda.is_available():
                 try:

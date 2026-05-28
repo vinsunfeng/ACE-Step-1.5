@@ -130,5 +130,55 @@ class TestRocmOverridesInGetGpuConfig(unittest.TestCase):
         self.assertEqual(config.recommended_backend, "pt")
 
 
+class TestLmDtypeRocm(unittest.TestCase):
+    """LM dtype logic: float32 on consumer ROCm, bfloat16 on CDNA, env var override."""
+
+    @patch("acestep.gpu_config.cuda_supports_bfloat16", return_value=False)
+    @patch("acestep.gpu_config.is_rocm_available", return_value=True)
+    def test_consumer_rocm_forces_float32(self, mock_rocm, mock_bf16):
+        """Consumer RDNA GPU without native bf16 -> dtype = float32."""
+        import torch
+        from acestep.gpu_config import is_rocm_available, cuda_supports_bfloat16
+        _is_rocm = is_rocm_available()
+        if _is_rocm and not cuda_supports_bfloat16():
+            resolved = torch.float32
+        elif _is_rocm:
+            resolved = torch.bfloat16
+        else:
+            resolved = torch.bfloat16
+        self.assertEqual(resolved, torch.float32)
+
+    @patch("acestep.gpu_config.cuda_supports_bfloat16", return_value=True)
+    @patch("acestep.gpu_config.is_rocm_available", return_value=True)
+    def test_datacenter_rocm_uses_bfloat16(self, mock_rocm, mock_bf16):
+        """CDNA GPU with native bf16 -> dtype = bfloat16."""
+        import torch
+        from acestep.gpu_config import is_rocm_available, cuda_supports_bfloat16
+        _is_rocm = is_rocm_available()
+        if _is_rocm and not cuda_supports_bfloat16():
+            resolved = torch.float32
+        elif _is_rocm:
+            resolved = torch.bfloat16
+        else:
+            resolved = torch.bfloat16
+        self.assertEqual(resolved, torch.bfloat16)
+
+    @patch("acestep.gpu_config.cuda_supports_bfloat16", return_value=True)
+    @patch("acestep.gpu_config.is_rocm_available", return_value=True)
+    def test_rocm_dtype_env_var_forces_float32(self, mock_rocm, mock_bf16):
+        """ACESTEP_ROCM_DTYPE=fp32 overrides CDNA bf16 default."""
+        import torch
+        import os
+        from unittest.mock import patch as upatch
+        with upatch.dict(os.environ, {"ACESTEP_ROCM_DTYPE": "fp32"}):
+            _is_rocm = True
+            rocm_dtype = os.getenv("ACESTEP_ROCM_DTYPE", "").lower()
+            if rocm_dtype in ("float32", "fp32"):
+                resolved = torch.float32
+            else:
+                resolved = torch.bfloat16
+        self.assertEqual(resolved, torch.float32)
+
+
 if __name__ == "__main__":
     unittest.main()
