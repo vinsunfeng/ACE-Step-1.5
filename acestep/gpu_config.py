@@ -108,6 +108,45 @@ def is_rocm_available() -> bool:
         return False
 
 
+def get_rocm_gfx_version() -> Optional[str]:
+    """Return ROCm gfx architecture string (e.g. 'gfx1151') or None.
+
+    Tries three sources in order:
+    1. torch.cuda.get_device_properties(0).gcnArchName
+    2. /sys/class/kfd/kfd/topology/nodes/*/properties (gfx_version line)
+    3. HSA_OVERRIDE_GFX_VERSION env var (best-effort conversion)
+    """
+    if not is_rocm_available():
+        return None
+    try:
+        import torch
+        props = torch.cuda.get_device_properties(0)
+        gcn = getattr(props, "gcnArchName", None)
+        if gcn:
+            return gcn.split(":")[0].strip()
+    except Exception:
+        pass
+    try:
+        import glob
+        for prop_file in glob.glob("/sys/class/kfd/kfd/topology/nodes/*/properties"):
+            with open(prop_file) as f:
+                for line in f:
+                    if line.startswith("gfx_version "):
+                        return line.split()[-1].strip()
+    except Exception:
+        pass
+    hsa = os.environ.get("HSA_OVERRIDE_GFX_VERSION")
+    if hsa:
+        return f"gfx{hsa.replace('.', '')}"
+    return None
+
+
+def is_rocm_consumer_gpu() -> bool:
+    """True for RDNA consumer GPUs (gfx11xx) where bf16/compile may be unreliable."""
+    gfx = get_rocm_gfx_version()
+    return gfx is not None and gfx.startswith("gfx11")
+
+
 def cuda_supports_bfloat16(device_index: int | None = None) -> bool:
     """Return whether a CUDA device supports native bfloat16 kernels."""
     try:
