@@ -111,7 +111,7 @@ Parameters can be placed in `param_obj` object.
 | `bpm` | int | - | Tempo (beats per minute) |
 | `key_scale` | string | "" | Key (e.g. "C Major") |
 | `time_signature` | string | "" | Time signature (e.g. "4/4") |
-| `vocal_language` | string | "en" | Language code (en, zh, ja, etc.) |
+| `vocal_language` | string | "en" | Language code — see [Supported Languages](#supported-languages) below |
 | `audio_format` | string | "mp3" | Output format (mp3/wav/flac) |
 
 ### Generation Parameters
@@ -147,3 +147,33 @@ Parameters can be placed in `param_obj` object.
   "batch_size": 2
 }
 ```
+
+## Supported Languages
+
+`vocal_language` accepts ISO 639-1 codes. Full list from `acestep/constants.py`:
+
+| Code | Language | Code | Language | Code | Language |
+|------|----------|------|----------|------|----------|
+| `zh` | Chinese (Mandarin) | `yue` | Chinese (Cantonese) | `ja` | Japanese |
+| `ko` | Korean | `en` | English | `fr` | French |
+| `de` | German | `es` | Spanish | `pt` | Portuguese |
+| `it` | Italian | `ru` | Russian | `ar` | Arabic |
+| `hi` | Hindi | `bn` | Bengali | `ta` | Tamil |
+| `te` | Telugu | `pa` | Punjabi | `ur` | Urdu |
+| `fa` | Persian | `he` | Hebrew | `tr` | Turkish |
+| `vi` | Vietnamese | `th` | Thai | `tl` | Filipino |
+| `ms` | Malay | `id` | Indonesian | `ko` | Korean |
+| `nl` | Dutch | `pl` | Polish | `uk` | Ukrainian |
+| `cs` | Czech | `sk` | Slovak | `hr` | Croatian |
+| `sr` | Serbian | `bg` | Bulgarian | `ro` | Romanian |
+| `hu` | Hungarian | `el` | Greek | `sv` | Swedish |
+| `no` | Norwegian | `da` | Danish | `fi` | Finnish |
+| `is` | Icelandic | `lt` | Lithuanian | `la` | Latin |
+| `sa` | Sanskrit | `sw` | Swahili | `ht` | Haitian |
+| `az` | Azerbaijani | `ca` | Catalan | `ne` | Nepali |
+| `af` | Afrikaans | `unknown` | Undetermined | | |
+
+**Important**:
+- Cantonese (粤语) is `yue`, not `zh`. Using `zh` will produce Mandarin pronunciation.
+- Match `vocal_language` to the language your lyrics are written in.
+- For instrumental songs (`[inst]`), this parameter has no effect.

@@ -59,6 +59,8 @@ Use `AskUserQuestion` to let the user choose before proceeding with MV rendering
 
 **Music Parameters**: Use the **acestep-songwriting** skill for guidance on duration, BPM, key scale, and time signature.
 
+**Language Parameter**: Use `--language` to set vocal language. Always match the language code to the lyrics language for correct pronunciation.
+
 ```bash
 # need to cd to this skill's directory first
 cd {project_root}/{.claude or .codex}/skills/acestep/
@@ -67,7 +69,14 @@ cd {project_root}/{.claude or .codex}/skills/acestep/
 ./scripts/acestep.sh generate -c "Electronic pop, energetic synths" -l "[Verse] Your complete lyrics
 [Chorus] Full chorus here..." --duration 120 --bpm 128
 
-# Instrumental only
+# Language examples
+./scripts/acestep.sh generate -c "pop, female vocal" -l "[Verse] 歌词..." --language zh           # Mandarin
+./scripts/acestep.sh generate -c "Cantopop" -l "[Verse] 粵語歌詞..." --language yue               # Cantonese
+./scripts/acestep.sh generate -c "J-pop" -l "[Verse] 歌詞..." --language ja                     # Japanese
+./scripts/acestep.sh generate -c "K-pop" -l "[Verse] 가사..." --language ko                     # Korean
+./scripts/acestep.sh generate -c "French chanson" -l "[Verse] Paroles..." --language fr          # French
+
+# Instrumental only (language parameter not needed)
 ./scripts/acestep.sh generate "Jazz with saxophone"
 
 # Quick exploration (Simple/Random mode)
@@ -88,6 +97,29 @@ cd {project_root}/{.claude or .codex}/skills/acestep/
 ./scripts/acestep.sh health
 ./scripts/acestep.sh models
 ```
+
+### Supported Languages (50+)
+
+ACE-Step uses ISO 639-1 language codes for `vocal_language` / `--language`. **Always set the language to match your lyrics** for correct pronunciation.
+
+| Region | Codes |
+|--------|-------|
+| **Chinese** | `zh` (Mandarin), `yue` (Cantonese) |
+| **East Asian** | `ja` (Japanese), `ko` (Korean) |
+| **Southeast Asian** | `vi` (Vietnamese), `th` (Thai), `tl` (Filipino), `ms` (Malay), `id` (Indonesian) |
+| **South Asian** | `hi` (Hindi), `bn` (Bengali), `ta` (Tamil), `te` (Telugu), `pa` (Punjabi), `ne` (Nepali), `ur` (Urdu) |
+| **Germanic** | `en` (English), `de` (German), `nl` (Dutch), `af` (Afrikaans) |
+| **Romance** | `fr` (French), `es` (Spanish), `pt` (Portuguese), `it` (Italian), `ca` (Catalan), `ro` (Romanian) |
+| **Slavic** | `ru` (Russian), `uk` (Ukrainian), `pl` (Polish), `cs` (Czech), `sk` (Slovak), `hr` (Croatian), `sr` (Serbian), `bg` (Bulgarian) |
+| **Nordic** | `sv` (Swedish), `no` (Norwegian), `da` (Danish), `fi` (Finnish), `is` (Icelandic) |
+| **Middle East** | `ar` (Arabic), `fa` (Persian), `he` (Hebrew), `tr` (Turkish) |
+| **Other** | `la` (Latin), `sa` (Sanskrit), `sw` (Swahili), `ht` (Haitian), `hu` (Hungarian), `lt` (Lithuanian), `el` (Greek), `az` (Azerbaijani) |
+
+**Language selection rules**:
+- If lyrics are in Cantonese (粵語/广东话): use `--language yue`, **NOT** `zh`
+- If lyrics mix languages: set the primary singing language
+- Instrumental songs (`[inst]`): language parameter has no effect, can be omitted
+- Default config is `en` — always override when generating non-English songs
 
 ### Cover / Audio Repainting
 
@@ -182,7 +214,7 @@ To get the actual synthesized lyrics, parse the JSON and read the top-level `lyr
 | `api_mode` | `completion` | API mode: `completion` (OpenRouter, default) or `native` (polling) |
 | `generation.thinking` | `true` | Enable 5Hz LM (higher quality, slower) |
 | `generation.audio_format` | `mp3` | Output format (mp3/wav/flac) |
-| `generation.vocal_language` | `en` | Vocal language |
+| `generation.vocal_language` | `en` | Default vocal language (see [Supported Languages](#supported-languages-50) for all codes) |
 
 ## Prerequisites - ACE-Step API Service
 

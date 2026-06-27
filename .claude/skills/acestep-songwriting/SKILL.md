@@ -155,7 +155,7 @@ Put complex style descriptions in Caption, not in tags.
 | `bpm` | 30–300 | Slow 60–80, mid 90–120, fast 130–180 |
 | `keyscale` | Key | e.g. `C Major`, `Am`. Common keys (C, G, D, Am, Em) most stable |
 | `timesignature` | Time sig | `4/4` (most common), `3/4` (waltz), `6/8` (swing) |
-| `vocal_language` | Language | Usually auto-detected from lyrics |
+| `vocal_language` | Language | Set explicitly — see language guide below |
 | `duration` | Seconds | See duration calculation below |
 
 ### When to Set Manually
@@ -167,6 +167,33 @@ Put complex style descriptions in Caption, not in tags.
 | Specific style (waltz) | `timesignature=3/4` |
 | Match other material | `bpm` + `duration` |
 | Specific key color | `keyscale` |
+| **Non-English lyrics** | `vocal_language` (always) |
+
+### Language Selection Guide
+
+ACE-Step supports 50+ languages via ISO 639-1 codes. **Always set `--language` when lyrics are not in English** — the default is `en`.
+
+Common language codes:
+
+| Language | Code | Example |
+|----------|------|---------|
+| English (default) | `en` | `--language en` |
+| Mandarin Chinese | `zh` | `--language zh` |
+| **Cantonese** | `yue` | `--language yue` |
+| Japanese | `ja` | `--language ja` |
+| Korean | `ko` | `--language ko` |
+| French | `fr` | `--language fr` |
+| Spanish | `es` | `--language es` |
+| German | `de` | `--language de` |
+| Arabic | `ar` | `--language ar` |
+| Hindi | `hi` | `--language hi` |
+
+**Key rules**:
+- Cantonese lyrics → use `yue`, NOT `zh` (Mandarin pronunciation will be wrong)
+- Write lyrics in the target language — don't transliterate (e.g., write 粵語, not romanized Cantonese)
+- For mixed-language lyrics, set the primary singing language
+- Instrumental (`[inst]`) → language parameter is ignored
+- Full list: `ar, az, bg, bn, ca, cs, da, de, el, en, es, fa, fi, fr, he, hi, hr, ht, hu, id, is, it, ja, ko, la, lt, ms, ne, nl, no, pa, pl, pt, ro, ru, sa, sk, sr, sv, sw, ta, te, th, tl, tr, uk, ur, vi, yue, zh`
 
 ---
 
