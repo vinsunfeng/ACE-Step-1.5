@@ -203,6 +203,34 @@ def _save_audio(audio_list, out_dir: str) -> list:
     return saved
 
 
+_META_PATTERNS = {
+    "caption": r"\*\*Caption:\*\*\s*(.+)",
+    "bpm": r"\*\*BPM:\*\*\s*(.+)",
+    "duration": r"\*\*Duration:\*\*\s*(.+?)s",
+    "key": r"\*\*Key:\*\*\s*(.+)",
+    "time_signature": r"\*\*Time Signature:\*\*\s*(.+)",
+}
+
+
+def _parse_metadata(content: str) -> dict:
+    """Best-effort parse of the ## Metadata / ## Lyrics markdown block.
+
+    Each field is optional (server omits N/A lines). The ## Lyrics block is
+    absent for instrumental tracks.
+    """
+    meta = {}
+    if not content:
+        return meta
+    for key, pat in _META_PATTERNS.items():
+        m = re.search(pat, content)
+        if m:
+            meta[key] = m.group(1).strip()
+    m = re.search(r"## Lyrics\s*\n(.+)", content, re.DOTALL)
+    if m:
+        meta["lyrics"] = m.group(1).strip()
+    return meta
+
+
 @mcp.tool()
 def check_health() -> str:
     """Check if the ACE-Step API server is healthy."""

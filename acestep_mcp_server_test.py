@@ -142,5 +142,33 @@ class TestSaveAudio(unittest.TestCase):
             shutil.rmtree(os.path.dirname(nested), ignore_errors=True)
 
 
+class TestParseMetadata(unittest.TestCase):
+    def test_parses_all_fields(self):
+        content = (
+            "## Metadata\n**Caption:** dreamy pop\n**BPM:** 120\n"
+            "**Duration:** 30.0s\n**Key:** C major\n**Time Signature:** 4/4\n\n"
+            "## Lyrics\n[Verse]\nHello"
+        )
+        m = server._parse_metadata(content)
+        self.assertEqual(m["caption"], "dreamy pop")
+        self.assertEqual(m["bpm"], "120")
+        self.assertEqual(m["duration"], "30.0")
+        self.assertEqual(m["key"], "C major")
+        self.assertEqual(m["time_signature"], "4/4")
+        self.assertIn("Hello", m["lyrics"])
+
+    def test_instrumental_has_no_lyrics(self):
+        m = server._parse_metadata("## Metadata\n**Caption:** beat\n**BPM:** 90")
+        self.assertEqual(m["caption"], "beat")
+        self.assertNotIn("lyrics", m)
+
+    def test_missing_fields_omitted(self):
+        self.assertEqual(server._parse_metadata("## Metadata\n**Caption:** only"), {"caption": "only"})
+
+    def test_empty_content(self):
+        self.assertEqual(server._parse_metadata(""), {})
+        self.assertEqual(server._parse_metadata("Music generated successfully."), {})
+
+
 if __name__ == "__main__":
     unittest.main()
