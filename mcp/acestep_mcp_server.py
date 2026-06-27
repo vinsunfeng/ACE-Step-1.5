@@ -128,6 +128,34 @@ def _request(method: str, path: str, body: dict | None = None) -> dict:
         return {"error": f"Connection failed: {e.reason}"}
 
 
+def _clear_model_cache() -> None:
+    """Clear the cached resolved model id."""
+    global _model_cache
+    _model_cache = None
+
+
+def _resolve_model(force: bool = False) -> str:
+    """Resolve the primary model id from GET /v1/models (data[0].id), cached.
+
+    The OpenRouter list emits the primary model first; there is no is_default
+    marker, so data[0] is the documented default. ``force`` clears the cache
+    first (retry path after a stale-model error).
+    """
+    global _model_cache
+    if force:
+        _clear_model_cache()
+    if _model_cache is None:
+        r = _request("GET", "/v1/models")
+        if r.get("error"):
+            raise RuntimeError(f"Could not resolve model: {r['error']}")
+        data = r.get("data", [])
+        if not (isinstance(data, list) and data):
+            raise RuntimeError("No models available on /v1/models")
+        first = data[0]
+        _model_cache = first.get("id") if isinstance(first, dict) else str(first)
+    return _model_cache
+
+
 @mcp.tool()
 def check_health() -> str:
     """Check if the ACE-Step API server is healthy."""

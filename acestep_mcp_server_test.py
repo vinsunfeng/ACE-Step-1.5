@@ -30,5 +30,39 @@ class TestImport(unittest.TestCase):
             self.assertTrue(hasattr(server, name), f"missing tool {name}")
 
 
+class TestResolveModel(unittest.TestCase):
+    def setUp(self):
+        server._clear_model_cache()
+
+    def test_resolves_first_model_id(self):
+        fake = {"object": "list", "data": [{"id": "acestep/acestep-v15-turbo"}]}
+        with patch.object(server, "_request", return_value=fake):
+            self.assertEqual(server._resolve_model(), "acestep/acestep-v15-turbo")
+
+    def test_caches_across_calls(self):
+        fake = {"object": "list", "data": [{"id": "acestep/acestep-v15-turbo"}]}
+        with patch.object(server, "_request", return_value=fake) as mock_req:
+            server._resolve_model()
+            server._resolve_model()
+            self.assertEqual(mock_req.call_count, 1)
+
+    def test_raises_when_no_models(self):
+        with patch.object(server, "_request", return_value={"object": "list", "data": []}):
+            with self.assertRaises(RuntimeError):
+                server._resolve_model()
+
+    def test_raises_on_request_error(self):
+        with patch.object(server, "_request", return_value={"error": "boom"}):
+            with self.assertRaises(RuntimeError):
+                server._resolve_model()
+
+    def test_force_clears_cache(self):
+        fake = {"object": "list", "data": [{"id": "acestep/acestep-v15-turbo"}]}
+        with patch.object(server, "_request", return_value=fake) as mock_req:
+            server._resolve_model()
+            server._resolve_model(force=True)
+            self.assertEqual(mock_req.call_count, 2)
+
+
 if __name__ == "__main__":
     unittest.main()
