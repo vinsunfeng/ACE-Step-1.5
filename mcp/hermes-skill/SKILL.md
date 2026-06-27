@@ -17,6 +17,9 @@ metadata:
 
 # ACE-Step Music Generation
 
+> This skill targets `/v1/chat/completions` only. Field shapes (`audio_config.*`)
+> and format options differ from `/release_task` — see `llms-full.txt`.
+
 ## When to Use
 
 Use this skill when the user asks to:
@@ -43,7 +46,7 @@ curl -X POST {{API_URL}}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer {{API_KEY}}' \
   -d '{
-    "model": "acestep/acestep-v15-chinese-lyric",
+    "model": "acestep/acestep-v15-turbo",
     "messages": [{"role": "user", "content": "DESCRIPTION_HERE"}],
     "stream": false,
     "audio_config": {
@@ -61,7 +64,7 @@ curl -X POST {{API_URL}}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer {{API_KEY}}' \
   -d '{
-    "model": "acestep/acestep-v15-chinese-lyric",
+    "model": "acestep/acestep-v15-turbo",
     "messages": [{"role": "user", "content": "DESCRIPTION_HERE"}],
     "stream": false,
     "lyrics": "[Verse]\nLyrics here\n[Chorus]\nChorus lyrics",
@@ -80,7 +83,7 @@ curl -X POST {{API_URL}}/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer {{API_KEY}}' \
   -d '{
-    "model": "acestep/acestep-v15-chinese-lyric",
+    "model": "acestep/acestep-v15-turbo",
     "messages": [{"role": "user", "content": "DESCRIPTION_HERE"}],
     "stream": false,
     "lyrics": "[inst]",
@@ -99,13 +102,17 @@ curl -X POST {{API_URL}}/v1/chat/completions \
 | `prompt` (in messages) | string | required | Music style/mood description |
 | `lyrics` | string | "" | Lyrics with [Verse], [Chorus] tags. [inst] = instrumental |
 | `duration` | float | auto | Duration in seconds |
-| `format` | string | "mp3" | mp3, wav, flac, ogg, aac |
+| `format` | string | "mp3" | mp3, wav, flac, ogg, m4a, aac (chat-completions) |
 | `bpm` | int | auto | Beats per minute (60-200) |
 | `key_scale` | string | auto | Key, e.g. "C major", "A minor" |
+| `time_signature` | string | auto | Time signature, e.g. "4/4", "3/4", "6/8" |
 | `vocal_language` | string | "en" | en, zh, ja, ko, fr, de, es, etc. |
+| `task_type` | string | "text2music" | text2music / cover / repaint / complete |
 | `seed` | int | random | Seed for reproducibility |
 | `guidance_scale` | float | 7.0 | Higher = more prompt adherence |
 | `inference_steps` | int | 8 | More steps = higher quality, slower |
+
+Source audio for cover/repaint/complete is passed as a multimodal `input_audio` content part in `messages` (not a body field).
 
 ## Response Format
 
@@ -146,6 +153,16 @@ Returns structured caption, lyrics, BPM, key, duration.
 | `cover` | Cover with source audio + new style |
 | `repaint` | Regenerate a section of audio |
 | `complete` | Continue from existing audio |
+
+### Cover (source audio inline)
+
+```bash
+curl -X POST {{API_URL}}/v1/chat/completions -H 'Content-Type: application/json' \
+  -d '{"model":"acestep/acestep-v15-turbo","messages":[{"role":"user","content":[
+    {"type":"text","text":"jazz cover"},
+    {"type":"input_audio","input_audio":{"data":"<base64-of-src.mp3>","format":"mp3"}}]}],
+    "task_type":"cover","audio_cover_strength":0.8}'
+```
 
 ## Pitfalls
 
