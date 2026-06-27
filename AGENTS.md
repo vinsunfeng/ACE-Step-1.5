@@ -184,14 +184,15 @@ def inject_lora_into_dit(
 - [ ] Required docstrings are present for all new/modified modules, classes, and functions.
 - [ ] WIP/unstable functionality is feature-flagged and not exposed as default-ready behavior.
 - [ ] Module LOC policy is met (`<=150` target, `<=200` hard cap or justified exception).
+- [ ] If you added/removed/renamed an `@mcp.tool()` in `mcp/acestep_mcp_server.py`, the AGENTS.md MCP Tools table and `acestep/api/agent_discovery_route.py` `mcp_server.tools` were updated in the same commit.
 
 ## Music Generation MCP Server
 
 An MCP server wrapping the ACE-Step API is available at `mcp/acestep_mcp_server.py`.
 
-### Codex MCP Configuration
+### MCP Configuration (Claude Code / Codex)
 
-Add to your Codex MCP settings:
+Add to your Codex MCP settings (Claude Code uses the same JSON in `.claude/settings.json` under `mcpServers`, or via `claude mcp add`):
 
 ```json
 {
@@ -208,6 +209,10 @@ Add to your Codex MCP settings:
 }
 ```
 
+Additional MCP env vars:
+- `ACESTEP_OUTPUT_DIR` — where generated audio is saved (default `./acestep_output`, relative to the MCP process CWD).
+- `ACESTEP_REQUEST_TIMEOUT` — per-request timeout in seconds (default `650`, kept above the server's 600s).
+
 ### MCP Tools
 
 | Tool | Description |
@@ -216,6 +221,9 @@ Add to your Codex MCP settings:
 | `list_models` | List available music generation models |
 | `enhance_prompt` | Use LLM to structure raw prompt/lyrics into generation parameters |
 | `check_health` | Check API server health and model load status |
+| `get_examples` | Get example music generation parameters (simple or full) from the sample pool |
+
+Full parameter reference and per-endpoint differences: see `llms-full.txt` (served at `/llms-full.txt`).
 
 ### Usage Example
 
@@ -232,3 +240,5 @@ generate_music(
 
 Lyrics use section tags: `[Verse]`, `[Chorus]`, `[Bridge]`, `[Intro]`, `[Outro]`.
 For instrumental only, set `lyrics="[inst]"` or `instrumental=True`.
+
+`generate_music(prompt="jazz cover", src_audio="song.mp3")   # task_type auto=cover`
