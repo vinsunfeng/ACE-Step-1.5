@@ -181,6 +181,28 @@ def _resolve_task_type(task_type: str, src_audio: str | None) -> str | None:
     return task_type
 
 
+def _save_audio(audio_list, out_dir: str) -> list:
+    """Decode base64 data URLs into files in out_dir. Returns saved paths.
+
+    Returns [] if no decodable audio (caller treats empty as 'no audio').
+    Extension is derived from the response mime via _MIME_TO_EXT (fallback mp3).
+    """
+    os.makedirs(out_dir, exist_ok=True)
+    saved = []
+    for a in audio_list or []:
+        url = a.get("audio_url", {}).get("url", "") if isinstance(a, dict) else ""
+        if not url.startswith("data:"):
+            continue
+        header, b64data = url.split(",", 1)
+        mime = header.split(":")[1].split(";")[0]
+        ext = _MIME_TO_EXT.get(mime, "mp3")
+        path = os.path.join(out_dir, f"{uuid.uuid4().hex}.{ext}")
+        with open(path, "wb") as f:
+            f.write(base64.b64decode(b64data))
+        saved.append(path)
+    return saved
+
+
 @mcp.tool()
 def check_health() -> str:
     """Check if the ACE-Step API server is healthy."""

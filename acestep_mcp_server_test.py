@@ -101,5 +101,46 @@ class TestResolveTaskType(unittest.TestCase):
         self.assertEqual(server._resolve_task_type("text2music", None), "text2music")
 
 
+class TestSaveAudio(unittest.TestCase):
+    def _b64url(self, payload: bytes, mime: str = "audio/mpeg") -> str:
+        return "data:" + mime + ";base64," + base64.b64encode(payload).decode()
+
+    def test_saves_file_and_returns_path(self):
+        with tempfile.TemporaryDirectory() as d:
+            paths = server._save_audio(
+                [{"type": "audio_url", "audio_url": {"url": self._b64url(b"ABC")}}], d
+            )
+            self.assertEqual(len(paths), 1)
+            self.assertTrue(os.path.exists(paths[0]))
+            with open(paths[0], "rb") as f:
+                self.assertEqual(f.read(), b"ABC")
+            self.assertTrue(paths[0].endswith(".mp3"))
+
+    def test_mime_drives_extension(self):
+        with tempfile.TemporaryDirectory() as d:
+            paths = server._save_audio(
+                [{"type": "audio_url", "audio_url": {"url": self._b64url(b"X", "audio/mp4")}}], d
+            )
+            self.assertTrue(paths[0].endswith(".m4a"))
+
+    def test_empty_or_none_returns_empty(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(server._save_audio(None, d), [])
+            self.assertEqual(server._save_audio([], d), [])
+            self.assertEqual(
+                server._save_audio([{"type": "audio_url", "audio_url": {"url": ""}}], d), []
+            )
+
+    def test_creates_output_dir(self):
+        nested = os.path.join(tempfile.mkdtemp(), "deep", "out")
+        try:
+            server._save_audio(
+                [{"type": "audio_url", "audio_url": {"url": self._b64url(b"Y")}}], nested
+            )
+            self.assertTrue(os.path.isdir(nested))
+        finally:
+            shutil.rmtree(os.path.dirname(nested), ignore_errors=True)
+
+
 if __name__ == "__main__":
     unittest.main()
