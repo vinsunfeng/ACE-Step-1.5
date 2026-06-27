@@ -1,5 +1,13 @@
 # ACE-Step 1.5 — Full API Reference for Agents
 
+## Integration Patterns
+
+- **MCP-first (preferred for MCP-capable agents):** run `mcp/acestep_mcp_server.py`.
+  Tools: generate_music, enhance_prompt, list_models, check_health, get_examples.
+  See AGENTS.md for config. generate_music saves audio to disk and returns the path.
+- **HTTP fallback:** POST /v1/chat/completions (sync, audio as base64) — primary.
+  For native/long jobs: /release_task + /query_result (async, files saved server-side).
+
 ## Overview
 
 ACE-Step is an AI music generation system built on a Diffusion Transformer (DiT) architecture with an optional 5Hz Language Model (LM) for metadata completion and audio code generation. It produces full songs (vocals + instruments) as audio files.
@@ -40,13 +48,21 @@ GET /v1/models
 Response:
 ```json
 {
-  "data": {
-    "models": [{"name": "acestep-v15-chinese-lyric", "is_default": true}],
-    "default_model": "acestep-v15-chinese-lyric"
-  },
-  "code": 200
+  "object": "list",
+  "data": [
+    {
+      "id": "acestep/acestep-v15-turbo",
+      "name": "ACE-Step 1.5 Turbo",
+      "created": 1234567890,
+      "input_modalities": ["text", "audio"],
+      "output_modalities": ["audio", "text"],
+      "pricing": {"prompt": "0", "completion": "0"}
+    }
+  ]
 }
 ```
+
+Note: `data` is a flat list; there is no `default_model` field. The primary model is first.
 
 ### Download Audio
 
@@ -62,58 +78,24 @@ Returns audio file. Supported MIME types: `audio/mpeg`, `audio/wav`, `audio/flac
 
 The primary music generation endpoint. Accepts JSON or form-data.
 
-#### Request Fields
+#### Table A — `/release_task` (native) Field Reference
 
-**Text Input:**
+Per-endpoint differences are explicit. Compare with Table B for `/v1/chat/completions` below.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `prompt` | string | `""` | Text description of the desired music style, mood, instruments |
-| `lyrics` | string | `""` | Lyrics with section tags. Use `[inst]` or `[instrumental]` for instrumental tracks |
-| `vocal_language` | string | `"en"` | Language code: `en`, `zh`, `ja`, `ko`, `fr`, `de`, `es`, `bn`, etc. |
+| `lyrics` | string | `""` | Lyrics with section tags. Use `[inst]`/`[instrumental]` for instrumental |
 | `global_caption` | string | `""` | Global description for lego multi-track tasks |
-
-**Music Metadata:**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| `audio_duration` | float | null | Target duration in seconds |
+| `audio_format` | string | `"flac"` | Output format: `mp3`, `flac`, `wav`, `opus`, `aac`, `wav32` (NOT ogg/m4a) |
 | `bpm` | int | null | Beats per minute (typically 60–200) |
 | `key_scale` | string | `""` | Musical key and scale, e.g. `"C major"`, `"A minor"`, `"F# major"` |
 | `time_signature` | string | `""` | Time signature, e.g. `"4/4"`, `"3/4"`, `"6/8"` |
-| `audio_duration` | float | null | Target duration in seconds |
-
-**Generation Control:**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `task_type` | string | `"text2music"` | Task type (see Task Types below) |
-| `inference_steps` | int | `8` | Diffusion steps (more = higher quality, slower) |
-| `guidance_scale` | float | `7.0` | Classifier-free guidance scale |
-| `seed` | int/string | `-1` | Random seed. `-1` = random. Comma-separated string for batch: `"42,123,456"` |
-| `batch_size` | int | `2` | Number of audio samples to generate |
-| `audio_format` | string | `"mp3"` | Output format: `mp3`, `flac`, `wav`, `opus`, `aac`, `wav32` |
-| `infer_method` | string | `"ode"` | Diffusion method: `"ode"` or `"sde"` |
-| `shift` | float | `3.0` | Timestep shift factor (1.0–5.0). Only for base models, not turbo |
-| `timesteps` | string | null | Custom timesteps (comma-separated). Overrides `inference_steps` and `shift` |
-
-**LM (Language Model) Parameters:**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `thinking` | bool | `false` | Use 5Hz LM to generate audio codes (LM-DiT behavior) |
-| `lm_temperature` | float | `0.85` | LM sampling temperature |
-| `lm_cfg_scale` | float | `2.5` | LM classifier-free guidance scale |
-| `lm_top_p` | float | `0.9` | LM nucleus sampling threshold |
-| `sample_mode` | bool | `false` | Auto-generate caption/lyrics/metas via LM |
-| `sample_query` | string | `""` | Query for sample mode (e.g. "a chill jazz song") |
-| `use_format` | bool | `false` | Use LLM to enhance/structure input caption and lyrics |
-
-**Audio Editing (for cover/repaint/complete tasks):**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `src_audio_path` | string | null | Source audio file path (for cover, repaint, complete, lego) |
+| `vocal_language` | string | `"en"` | Language code: `en`, `zh`, `ja`, `ko`, `fr`, `de`, `es`, `bn`, etc. |
+| `src_audio_path` | string | null | Source audio file path (cover/repaint/complete/lego) |
 | `reference_audio_path` | string | null | Reference audio for style transfer |
+| `task_type` | string | `"text2music"` | Task type (see Task Types below) |
 | `repainting_start` | float | `0.0` | Repaint region start in seconds |
 | `repainting_end` | float | null | Repaint region end in seconds |
 | `repaint_mode` | string | `"balanced"` | `"conservative"`, `"balanced"`, or `"aggressive"` |
@@ -122,11 +104,20 @@ The primary music generation endpoint. Accepts JSON or form-data.
 | `cover_noise_strength` | float | `0.0` | Cover noise blending (0=pure noise, 1=closest to source) |
 | `repaint_latent_crossfade_frames` | int | `10` | Latent-level boundary blend in frames (25Hz) |
 | `repaint_wav_crossfade_sec` | float | `0.0` | Waveform crossfade in seconds |
-
-**Model Selection:**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| `batch_size` | int | `2` | Number of audio samples to generate |
+| `inference_steps` | int | `8` | Diffusion steps (more = higher quality, slower) |
+| `guidance_scale` | float | `7.0` | Classifier-free guidance scale |
+| `seed` | int/string | `-1` | Random seed. `-1` = random. Comma-separated string for batch |
+| `infer_method` | string | `"ode"` | Diffusion method: `"ode"` or `"sde"` |
+| `shift` | float | `3.0` | Timestep shift factor (1.0–5.0). Only base models, not turbo |
+| `timesteps` | string | null | Custom timesteps (comma-separated). Overrides `inference_steps`/`shift` |
+| `thinking` | bool | `false` | Use 5Hz LM to generate audio codes (LM-DiT behavior) |
+| `lm_temperature` | float | `0.85` | LM sampling temperature |
+| `lm_cfg_scale` | float | `2.0` | LM classifier-free guidance scale (runtime default 2.0) |
+| `lm_top_p` | float | `0.9` | LM nucleus sampling threshold |
+| `sample_mode` | bool | `false` | Auto-generate caption/lyrics/metas via LM |
+| `sample_query` | string | `""` | Query for sample mode (e.g. "a chill jazz song") |
+| `use_format` | bool | `false` | Use LLM to enhance/structure input caption and lyrics |
 | `model` | string | null | Model name to use (e.g. `"acestep-v15-turbo"`) for multi-model setups |
 
 #### Example: Simple Text-to-Music
@@ -237,7 +228,7 @@ Drop-in replacement for OpenAI/OpenRouter chat completions API. Returns audio as
 
 ```json
 {
-  "model": "acestep/acestep-v15-chinese-lyric",
+  "model": "acestep/acestep-v15-turbo",
   "messages": [
     {"role": "user", "content": "A chill lo-fi hip hop beat"}
   ],
@@ -257,17 +248,29 @@ Drop-in replacement for OpenAI/OpenRouter chat completions API. Returns audio as
 - Use `<prompt>...</prompt>` and `<lyrics>...</lyrics>` tags for explicit separation
 - Attach audio via `"type": "input_audio"` content blocks (base64)
 
-**Extended fields on the request:**
+#### Table B — `/v1/chat/completions` (OpenRouter) Field Reference
+
+Note: audio metadata is nested under `audio_config.*` (not top-level like `/release_task`). Top-level `lyrics` bypasses message parsing.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `task_type` | string | `"text2music"` | Same task types as `/release_task` |
-| `thinking` | bool | `false` | Use LM for audio code generation |
+| `audio_config.duration` | float | auto | Target duration in seconds |
+| `audio_config.format` | string | `"mp3"` | Output format: `mp3`, `wav`, `flac`, `ogg`, `m4a`, `aac` (NOT opus/wav32) |
+| `audio_config.bpm` | int | auto | Beats per minute (60–200) |
+| `audio_config.key_scale` | string | auto | Musical key, e.g. `"C major"`, `"A minor"` |
+| `audio_config.time_signature` | string | auto | Time signature, e.g. `"4/4"`, `"3/4"` |
+| `audio_config.vocal_language` | string | `"en"` | Language code: `en`, `zh`, `ja`, `ko`, etc. |
+| `audio_config.instrumental` | bool | false | Generate instrumental track |
+| `lyrics` | string | `""` | Direct lyrics (top-level, bypass message parsing) |
+| `task_type` | string | `"text2music"` | Task type (text2music/cover/repaint/complete) |
+| `repainting_start` | float | `0.0` | Repaint region start in seconds (repaint only) |
+| `repainting_end` | float | null | Repaint region end in seconds (repaint only) |
+| `audio_cover_strength` | float | `1.0` | Cover strength (0.0–1.0) (cover only) |
+| `seed` | int/string | null | Seed(s) for reproducibility |
 | `guidance_scale` | float | `7.0` | Classifier-free guidance |
 | `inference_steps` | int | `8` | Diffusion steps |
+| `thinking` | bool | `false` | Use LM for audio code generation |
 | `batch_size` | int | `1` | Number of samples |
-| `seed` | int/string | null | Seed(s) for reproducibility |
-| `lyrics` | string | `""` | Direct lyrics (bypass message parsing) |
 | `sample_mode` | bool | `false` | Auto-generate from user message |
 | `use_format` | bool | `false` | LLM-enhance input |
 
@@ -291,7 +294,7 @@ data: [DONE]
   "id": "chatcmpl-abc123",
   "object": "chat.completion",
   "created": 1234567890,
-  "model": "acestep/acestep-v15-chinese-lyric",
+  "model": "acestep/acestep-v15-turbo",
   "choices": [{
     "index": 0,
     "message": {
@@ -304,6 +307,33 @@ data: [DONE]
   "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 }
 ```
+
+#### Cover / Repaint Worked Example (source audio inline)
+
+For `cover` and `repaint`, pass the source audio as a multimodal `input_audio` content part (base64) inside `messages`, then set the task type. Cover uses `audio_cover_strength`; repaint additionally uses `repainting_start`/`repainting_end`.
+
+```json
+POST /v1/chat/completions
+{
+  "model": "acestep/acestep-v15-turbo",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "jazz cover"},
+        {"type": "input_audio", "input_audio": {"data": "<base64-of-src.mp3>", "format": "mp3"}}
+      ]
+    }
+  ],
+  "stream": false,
+  "task_type": "cover",
+  "audio_cover_strength": 0.8
+}
+```
+
+- `cover`: requires source audio + prompt; tune fidelity with `audio_cover_strength` (0.0–1.0).
+- `repaint`: same inline-audio shape, set `task_type: "repaint"` plus `repainting_start`/`repainting_end` to define the region to regenerate.
+- `/release_task` (native) does NOT accept inline base64 audio — pass source audio via `src_audio_path` (server-side file path) instead.
 
 ---
 
