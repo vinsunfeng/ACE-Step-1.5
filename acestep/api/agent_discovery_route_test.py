@@ -1,5 +1,7 @@
 """Tests for agent_discovery_route — GET /.well-known/agent."""
 
+import os
+import re
 import unittest
 
 from fastapi import FastAPI
@@ -57,6 +59,29 @@ class TestAgentDiscoveryEndpoint(unittest.TestCase):
         data = resp.json()
         self.assertIn("llms_txt_url", data)
         self.assertIn("llms_full_txt_url", data)
+
+    def test_discovery_tools_match_mcp_file(self):
+        """The discovery route's tools list must stay in sync with the
+        @mcp.tool() functions defined in the MCP server file. Parsed
+        generically, so it catches both renames and count drift."""
+        project_root = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        with open(os.path.join(project_root, "mcp", "acestep_mcp_server.py")) as f:
+            srv_src = f.read()
+        with open(
+            os.path.join(project_root, "acestep", "api", "agent_discovery_route.py")
+        ) as f:
+            route_src = f.read()
+        defined = set(re.findall(r"@mcp\.tool\(\)\s*\ndef\s+(\w+)", srv_src))
+        m = re.search(r'"tools":\s*\[(.*?)\]', route_src, re.DOTALL)
+        self.assertIsNotNone(m, "tools list not found in discovery route")
+        listed = set(re.findall(r'"([^"]+)"', m.group(1)))
+        self.assertEqual(
+            defined,
+            listed,
+            f"discovery tools {listed} != MCP tools {defined}",
+        )
 
 
 if __name__ == "__main__":
