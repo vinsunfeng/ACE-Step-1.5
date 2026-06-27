@@ -156,6 +156,31 @@ def _resolve_model(force: bool = False) -> str:
     return _model_cache
 
 
+def _build_messages(prompt: str, src_audio: str | None) -> list:
+    """Build the messages list. With src_audio -> multimodal input_audio block."""
+    if src_audio:
+        with open(src_audio, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("utf-8")
+        ext = os.path.splitext(src_audio)[1].lstrip(".").lower() or "mp3"
+        content = [
+            {"type": "text", "text": prompt},
+            {"type": "input_audio", "input_audio": {"data": b64, "format": ext}},
+        ]
+    else:
+        content = prompt
+    return [{"role": "user", "content": content}]
+
+
+def _resolve_task_type(task_type: str, src_audio: str | None) -> str | None:
+    """Apply src_audio <-> task_type rules. Returns the task_type to use, or
+    None if the combination is invalid (caller returns an error string)."""
+    if src_audio:
+        if task_type == "text2music":
+            return "cover"  # auto-cover
+        return task_type if task_type in _SRC_TASK_TYPES else None
+    return task_type
+
+
 @mcp.tool()
 def check_health() -> str:
     """Check if the ACE-Step API server is healthy."""

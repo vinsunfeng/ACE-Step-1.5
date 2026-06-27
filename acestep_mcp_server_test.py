@@ -64,5 +64,42 @@ class TestResolveModel(unittest.TestCase):
             self.assertEqual(mock_req.call_count, 2)
 
 
+class TestBuildMessages(unittest.TestCase):
+    def test_text_only_is_string_content(self):
+        self.assertEqual(
+            server._build_messages("a pop song", None),
+            [{"role": "user", "content": "a pop song"}],
+        )
+
+    def test_src_audio_builds_multimodal(self):
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+            f.write(b"fake-audio-bytes")
+            path = f.name
+        try:
+            content = server._build_messages("rock cover", path)[0]["content"]
+            self.assertIsInstance(content, list)
+            self.assertEqual(content[0], {"type": "text", "text": "rock cover"})
+            self.assertEqual(content[1]["type"], "input_audio")
+            self.assertEqual(content[1]["input_audio"]["format"], "mp3")
+            self.assertEqual(base64.b64decode(content[1]["input_audio"]["data"]), b"fake-audio-bytes")
+        finally:
+            os.unlink(path)
+
+
+class TestResolveTaskType(unittest.TestCase):
+    def test_src_audio_auto_cover_from_default(self):
+        self.assertEqual(server._resolve_task_type("text2music", "x.mp3"), "cover")
+
+    def test_src_audio_keeps_explicit_src_type(self):
+        self.assertEqual(server._resolve_task_type("repaint", "x.mp3"), "repaint")
+
+    def test_src_audio_rejects_non_src_type(self):
+        self.assertIsNone(server._resolve_task_type("made-up", "x.mp3"))
+
+    def test_no_src_audio_keeps_type(self):
+        self.assertEqual(server._resolve_task_type("cover", None), "cover")
+        self.assertEqual(server._resolve_task_type("text2music", None), "text2music")
+
+
 if __name__ == "__main__":
     unittest.main()
