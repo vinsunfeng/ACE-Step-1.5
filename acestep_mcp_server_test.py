@@ -141,6 +141,18 @@ class TestSaveAudio(unittest.TestCase):
         finally:
             shutil.rmtree(os.path.dirname(nested), ignore_errors=True)
 
+    def test_skips_malformed_data_urls(self):
+        with tempfile.TemporaryDirectory() as d:
+            bad = [
+                {"type": "audio_url", "audio_url": {"url": "data:audio/mpeg;base64"}},  # no comma
+                {"type": "audio_url", "audio_url": {"url": "data:audio/mpeg;base64,!!!notb64!!!"}},  # bad b64
+                {"type": "audio_url", "audio_url": {"url": self._b64url(b"OK")}},  # good
+            ]
+            paths = server._save_audio(bad, d)
+            self.assertEqual(len(paths), 1)
+            with open(paths[0], "rb") as f:
+                self.assertEqual(f.read(), b"OK")
+
 
 class TestParseMetadata(unittest.TestCase):
     def test_parses_all_fields(self):
@@ -168,6 +180,12 @@ class TestParseMetadata(unittest.TestCase):
     def test_empty_content(self):
         self.assertEqual(server._parse_metadata(""), {})
         self.assertEqual(server._parse_metadata("Music generated successfully."), {})
+
+    def test_lyrics_stop_at_next_section(self):
+        content = "## Metadata\n**Caption:** x\n\n## Lyrics\n[Verse]\nHello\n\n## Notes\nextra"
+        m = server._parse_metadata(content)
+        self.assertIn("Hello", m["lyrics"])
+        self.assertNotIn("extra", m["lyrics"])
 
 
 class TestGenerateMusic(unittest.TestCase):
@@ -237,6 +255,9 @@ class TestGenerateMusic(unittest.TestCase):
         self.assertIn("Audio saved:", out)
         self.assertEqual(mr.call_count, 4)
         self.assertEqual(mr.call_args_list[3].args[2]["model"], "acestep/acestep-v15-turbo")
+
+    def test_missing_src_audio_file_returns_error(self):
+        self.assertIn("src_audio file not found", server.generate_music(prompt="x", src_audio="/no/such/file.mp3"))
 
 
 if __name__ == "__main__":

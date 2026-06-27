@@ -191,14 +191,18 @@ def _save_audio(audio_list, out_dir: str) -> list:
     saved = []
     for a in audio_list or []:
         url = a.get("audio_url", {}).get("url", "") if isinstance(a, dict) else ""
-        if not url.startswith("data:"):
+        if not url.startswith("data:") or "," not in url:
             continue
         header, b64data = url.split(",", 1)
+        try:
+            raw = base64.b64decode(b64data, validate=False)
+        except Exception:
+            continue
         mime = header.split(":")[1].split(";")[0]
         ext = _MIME_TO_EXT.get(mime, "mp3")
         path = os.path.join(out_dir, f"{uuid.uuid4().hex}.{ext}")
         with open(path, "wb") as f:
-            f.write(base64.b64decode(b64data))
+            f.write(raw)
         saved.append(path)
     return saved
 
@@ -225,7 +229,7 @@ def _parse_metadata(content: str) -> dict:
         m = re.search(pat, content)
         if m:
             meta[key] = m.group(1).strip()
-    m = re.search(r"## Lyrics\s*\n(.+)", content, re.DOTALL)
+    m = re.search(r"## Lyrics\s*\n(.+?)(?=^## |\Z)", content, re.DOTALL | re.MULTILINE)
     if m:
         meta["lyrics"] = m.group(1).strip()
     return meta
@@ -303,6 +307,9 @@ def generate_music(
         return "src_audio requires a non-empty prompt."
     if not src_audio and resolved_task in {"cover", "repaint", "complete"}:
         return f"task_type '{resolved_task}' requires src_audio."
+
+    if src_audio and not os.path.isfile(src_audio):
+        return f"src_audio file not found: {src_audio}"
 
     model_resolved_here = model is None
     if model is None:
