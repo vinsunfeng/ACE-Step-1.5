@@ -261,3 +261,5 @@ docs/.vitepress/dist/
 docs/.vitepress/cache/
 docs/en/awesome.md
 package-lock.json
+# CodeGraph index (tooling)
+.codegraph/
