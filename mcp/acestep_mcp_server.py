@@ -3,6 +3,8 @@
 import base64
 import json
 import os
+import re
+import uuid
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
@@ -10,7 +12,25 @@ from mcp.server.fastmcp import FastMCP
 
 API_URL = os.getenv("ACESTEP_API_URL", "http://localhost:8010").rstrip("/")
 API_KEY = os.getenv("ACESTEP_API_KEY", "")
+OUTPUT_DIR = os.getenv("ACESTEP_OUTPUT_DIR", os.path.join(os.getcwd(), "acestep_output"))
+REQUEST_TIMEOUT = int(os.getenv("ACESTEP_REQUEST_TIMEOUT", "650"))
 
+_SRC_TASK_TYPES = {"cover", "cover-nofsq", "repaint", "lego", "extract", "complete"}
+_CHAT_FORMATS = {"mp3", "wav", "flac", "ogg", "m4a", "aac"}
+_MIME_TO_EXT = {
+    "audio/mpeg": "mp3",
+    "audio/wav": "wav",
+    "audio/flac": "flac",
+    "audio/ogg": "ogg",
+    "audio/mp4": "m4a",
+    "audio/aac": "aac",
+}
+_model_cache = None
+
+# CONSTRAINT: keep this guide to prose caption/lyrics writing guidance only.
+# Do NOT add endpoint URLs, API field/param names, or format-option claims
+# (those live in llms-full.txt). Metadata *ranges* (BPM/key/duration) as
+# writing guidance are allowed.
 _CAPTION_GUIDE = """\
 ## How to Write Captions for ACE-Step
 
@@ -96,7 +116,7 @@ def _request(method: str, path: str, body: dict | None = None) -> dict:
     data = json.dumps(body).encode() if body else None
     req = Request(url, data=data, headers=_headers(), method=method)
     try:
-        with urlopen(req, timeout=600) as resp:
+        with urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
             data = json.loads(resp.read())
             if data.get("error"):
                 return {"error": str(data["error"])}
