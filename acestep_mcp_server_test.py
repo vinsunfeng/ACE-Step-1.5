@@ -56,6 +56,16 @@ class TestResolveModel(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 server._resolve_model()
 
+    def test_falls_back_to_health_when_models_empty(self):
+        def fake(method, path, body=None):
+            if path == "/v1/models":
+                return {"object": "list", "data": []}
+            if path == "/health":
+                return {"data": {"loaded_model": "acestep-v15-turbo"}}
+            return {}
+        with patch.object(server, "_request", side_effect=fake):
+            self.assertEqual(server._resolve_model(), "acestep/acestep-v15-turbo")
+
     def test_force_clears_cache(self):
         fake = {"object": "list", "data": [{"id": "acestep/acestep-v15-turbo"}]}
         with patch.object(server, "_request", return_value=fake) as mock_req:

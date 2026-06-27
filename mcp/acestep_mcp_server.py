@@ -135,24 +135,36 @@ def _clear_model_cache() -> None:
 
 
 def _resolve_model(force: bool = False) -> str:
-    """Resolve the primary model id from GET /v1/models (data[0].id), cached.
+    """Resolve the primary model id, cached.
 
-    The OpenRouter list emits the primary model first; there is no is_default
-    marker, so data[0] is the documented default. ``force`` clears the cache
-    first (retry path after a stale-model error).
+    Primary source: GET /v1/models -> data[0].id (flat list, primary first;
+    no is_default marker exists). Cold-start fallback: when /v1/models is empty
+    (model lazy-loads on first generation), use GET /health's loaded_model,
+    which reports the primary model name even before load. ``force`` clears the
+    cache first (retry path after a stale-model error).
     """
     global _model_cache
     if force:
         _clear_model_cache()
     if _model_cache is None:
+        model_id = None
         r = _request("GET", "/v1/models")
-        if r.get("error"):
-            raise RuntimeError(f"Could not resolve model: {r['error']}")
-        data = r.get("data", [])
-        if not (isinstance(data, list) and data):
-            raise RuntimeError("No models available on /v1/models")
-        first = data[0]
-        _model_cache = first.get("id") if isinstance(first, dict) else str(first)
+        if not r.get("error"):
+            data = r.get("data", [])
+            if isinstance(data, list) and data:
+                first = data[0]
+                model_id = first.get("id") if isinstance(first, dict) else str(first)
+        if model_id is None:
+            h = _request("GET", "/health")
+            if h.get("error"):
+                raise RuntimeError(f"Could not resolve model: {h['error']}")
+            h_data = h.get("data") if isinstance(h, dict) else None
+            loaded = h_data.get("loaded_model") if isinstance(h_data, dict) else None
+            if not loaded:
+                raise RuntimeError("No models available (/v1/models empty and /health has no loaded_model)")
+            loaded = str(loaded)
+            model_id = loaded if loaded.startswith("acestep/") else f"acestep/{loaded}"
+        _model_cache = model_id
     return _model_cache
 
 
