@@ -93,7 +93,7 @@ Per-endpoint differences are explicit. Compare with Table B for `/v1/chat/comple
 | `key_scale` | string | `""` | Musical key and scale, e.g. `"C major"`, `"A minor"`, `"F# major"` |
 | `time_signature` | string | `""` | Time signature, e.g. `"4/4"`, `"3/4"`, `"6/8"` |
 | `vocal_language` | string | `"en"` | Language code: `en`, `zh`, `ja`, `ko`, `fr`, `de`, `es`, `bn`, etc. |
-| `src_audio_path` | string | null | Source audio file path (cover/repaint/complete/lego) |
+| `src_audio_path` | string | null | Source audio file path (cover/cover-nofsq/repaint/lego/extract/complete) |
 | `reference_audio_path` | string | null | Reference audio for style transfer |
 | `task_type` | string | `"text2music"` | Task type (see Task Types below) |
 | `repainting_start` | float | `0.0` | Repaint region start in seconds |
@@ -262,7 +262,7 @@ Note: audio metadata is nested under `audio_config.*` (not top-level like `/rele
 | `audio_config.vocal_language` | string | `"en"` | Language code: `en`, `zh`, `ja`, `ko`, etc. |
 | `audio_config.instrumental` | bool | false | Generate instrumental track |
 | `lyrics` | string | `""` | Direct lyrics (top-level, bypass message parsing) |
-| `task_type` | string | `"text2music"` | Task type (text2music/cover/repaint/complete) |
+| `task_type` | string | `"text2music"` | Task type (text2music/cover/cover-nofsq/repaint/lego/extract/complete) |
 | `repainting_start` | float | `0.0` | Repaint region start in seconds (repaint only) |
 | `repainting_end` | float | null | Repaint region end in seconds (repaint only) |
 | `audio_cover_strength` | float | `1.0` | Cover strength (0.0–1.0) (cover only) |

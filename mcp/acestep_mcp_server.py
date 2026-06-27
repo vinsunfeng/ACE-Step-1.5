@@ -303,7 +303,9 @@ def generate_music(
 
     Saves generated audio to disk and returns the file path plus parsed
     metadata. For cover/repaint pass src_audio (local file path) — task_type
-    auto-defaults to 'cover'. task_type cover/repaint/complete require src_audio.
+    auto-defaults to 'cover'. All source-routing task types
+    (cover/cover-nofsq/repaint/lego/extract/complete) require src_audio;
+    cover-nofsq/lego/extract are server-side types surfaced for completeness.
     """
     fmt = (format or "mp3").lower()
     if fmt not in _CHAT_FORMATS:
@@ -317,7 +319,7 @@ def generate_music(
         return f"src_audio requires a source-audio task type, got '{task_type}'."
     if src_audio and not prompt:
         return "src_audio requires a non-empty prompt."
-    if not src_audio and resolved_task in {"cover", "repaint", "complete"}:
+    if not src_audio and resolved_task in _SRC_TASK_TYPES:
         return f"task_type '{resolved_task}' requires src_audio."
 
     if src_audio and not os.path.isfile(src_audio):

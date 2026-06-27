@@ -107,12 +107,12 @@ curl -X POST {{API_URL}}/v1/chat/completions \
 | `key_scale` | string | auto | Key, e.g. "C major", "A minor" |
 | `time_signature` | string | auto | Time signature, e.g. "4/4", "3/4", "6/8" |
 | `vocal_language` | string | "en" | en, zh, ja, ko, fr, de, es, etc. |
-| `task_type` | string | "text2music" | text2music / cover / repaint / complete |
+| `task_type` | string | "text2music" | text2music / cover / cover-nofsq / repaint / lego / extract / complete |
 | `seed` | int | random | Seed for reproducibility |
 | `guidance_scale` | float | 7.0 | Higher = more prompt adherence |
 | `inference_steps` | int | 8 | More steps = higher quality, slower |
 
-Source audio for cover/repaint/complete is passed as a multimodal `input_audio` content part in `messages` (not a body field).
+Source audio for cover/cover-nofsq/repaint/lego/extract/complete is passed as a multimodal `input_audio` content part in `messages` (not a body field).
 
 ## Response Format
 
@@ -151,7 +151,10 @@ Returns structured caption, lyrics, BPM, key, duration.
 |------|---------|
 | `text2music` | Text to new music (default) |
 | `cover` | Cover with source audio + new style |
+| `cover-nofsq` | Cover variant (no FSQ) |
 | `repaint` | Regenerate a section of audio |
+| `lego` | Multi-track / add layers from source audio |
+| `extract` | Extract stems/tracks from source audio |
 | `complete` | Continue from existing audio |
 
 ### Cover (source audio inline)

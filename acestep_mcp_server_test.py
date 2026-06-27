@@ -110,6 +110,10 @@ class TestResolveTaskType(unittest.TestCase):
         self.assertEqual(server._resolve_task_type("cover", None), "cover")
         self.assertEqual(server._resolve_task_type("text2music", None), "text2music")
 
+    def test_complete_with_src_audio_is_accepted(self):
+        # complete accepts src_audio (routing set) even though it's also required to have it
+        self.assertEqual(server._resolve_task_type("complete", "x.mp3"), "complete")
+
 
 class TestSaveAudio(unittest.TestCase):
     def _b64url(self, payload: bytes, mime: str = "audio/mpeg") -> str:
@@ -245,6 +249,18 @@ class TestGenerateMusic(unittest.TestCase):
 
     def test_cover_without_src_audio_errors(self):
         self.assertIn("requires src_audio", server.generate_music(prompt="x", task_type="cover"))
+
+    def test_all_src_task_types_require_src_audio(self):
+        # Every task type the MCP routes source audio for must require src_audio
+        # (the MCP exposes no audio_code_string, so src_audio is the only source path).
+        def fake(method, path, body=None):
+            return self._MODELS if path == "/v1/models" else self._gen_resp()
+
+        for t in sorted(server._SRC_TASK_TYPES):
+            with self.subTest(task_type=t):
+                with patch.object(server, "_request", side_effect=fake):
+                    out = server.generate_music(prompt="x", task_type=t)
+                self.assertIn("requires src_audio", out, f"{t} should require src_audio")
 
     def test_empty_audio_returns_retry_message_no_file(self):
         with patch.object(server, "_request", side_effect=[self._MODELS, self._gen_resp(with_audio=False)]):
