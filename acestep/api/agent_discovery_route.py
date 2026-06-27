@@ -61,6 +61,7 @@ def register_agent_discovery_route(app: FastAPI) -> None:
                     "list_models",
                     "enhance_prompt",
                     "check_health",
+                    "get_examples",
                 ],
                 "config": {
                     "ACESTEP_API_URL": "http://localhost:8010",
