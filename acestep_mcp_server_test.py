@@ -170,5 +170,74 @@ class TestParseMetadata(unittest.TestCase):
         self.assertEqual(server._parse_metadata("Music generated successfully."), {})
 
 
+class TestGenerateMusic(unittest.TestCase):
+    def setUp(self):
+        server._clear_model_cache()
+        self.tmp = tempfile.mkdtemp()
+        self._orig_out = server.OUTPUT_DIR
+        server.OUTPUT_DIR = self.tmp
+
+    def tearDown(self):
+        server.OUTPUT_DIR = self._orig_out
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _audio_url(self, payload=b"SONG", mime="audio/mpeg"):
+        return "data:" + mime + ";base64," + base64.b64encode(payload).decode()
+
+    def _gen_resp(self, content="## Metadata\n**Caption:** x", with_audio=True):
+        audio = (
+            [{"type": "audio_url", "audio_url": {"url": self._audio_url()}}] if with_audio else None
+        )
+        return {"choices": [{"message": {"content": content, "audio": audio}}]}
+
+    _MODELS = {"object": "list", "data": [{"id": "acestep/acestep-v15-turbo"}]}
+
+    def test_text2music_saves_and_returns_path_no_base64(self):
+        with patch.object(server, "_request", side_effect=[self._MODELS, self._gen_resp()]) as mr:
+            out = server.generate_music(prompt="pop", lyrics="[inst]")
+        self.assertIn("Audio saved:", out)
+        self.assertNotIn("base64,", out)
+        self.assertEqual(mr.call_args_list[1].args[2]["model"], "acestep/acestep-v15-turbo")
+        self.assertEqual(mr.call_args_list[1].args[2]["task_type"], "text2music")
+
+    def test_invalid_format_returns_error(self):
+        self.assertIn("Invalid format", server.generate_music(prompt="x", format="mp9"))
+
+    def test_src_audio_auto_cover(self):
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+            f.write(b"src"); src = f.name
+        try:
+            with patch.object(server, "_request", side_effect=[self._MODELS, self._gen_resp()]) as mr:
+                server.generate_music(prompt="rock cover", src_audio=src)
+            body = mr.call_args_list[1].args[2]
+            self.assertEqual(body["task_type"], "cover")
+            self.assertIsInstance(body["messages"][0]["content"], list)
+        finally:
+            os.unlink(src)
+
+    def test_cover_without_src_audio_errors(self):
+        self.assertIn("requires src_audio", server.generate_music(prompt="x", task_type="cover"))
+
+    def test_empty_audio_returns_retry_message_no_file(self):
+        with patch.object(server, "_request", side_effect=[self._MODELS, self._gen_resp(with_audio=False)]):
+            out = server.generate_music(prompt="x")
+        self.assertIn("No audio produced", out)
+        self.assertEqual(os.listdir(self.tmp), [])
+
+    def test_error_response_returns_failure(self):
+        with patch.object(server, "_request", side_effect=[self._MODELS, {"error": "boom"}]):
+            self.assertIn("Generation failed: boom", server.generate_music(prompt="x"))
+
+    def test_retry_on_model_error_then_succeeds(self):
+        models_v1 = {"object": "list", "data": [{"id": "acestep/old"}]}
+        models_v2 = {"object": "list", "data": [{"id": "acestep/acestep-v15-turbo"}]}
+        seq = [models_v1, {"error": "model acestep/old not found"}, models_v2, self._gen_resp()]
+        with patch.object(server, "_request", side_effect=seq) as mr:
+            out = server.generate_music(prompt="pop")
+        self.assertIn("Audio saved:", out)
+        self.assertEqual(mr.call_count, 4)
+        self.assertEqual(mr.call_args_list[3].args[2]["model"], "acestep/acestep-v15-turbo")
+
+
 if __name__ == "__main__":
     unittest.main()

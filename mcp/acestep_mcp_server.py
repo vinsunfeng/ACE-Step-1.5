@@ -270,48 +270,62 @@ def generate_music(
     format: str = "mp3",
     bpm: int | None = None,
     key_scale: str | None = None,
+    time_signature: str | None = None,
     vocal_language: str = "en",
     instrumental: bool = False,
     seed: int | None = None,
     task_type: str = "text2music",
+    src_audio: str | None = None,
+    repaint_start: float | None = None,
+    repaint_end: float | None = None,
+    cover_strength: float | None = None,
     guidance_scale: float | None = None,
     inference_steps: int | None = None,
+    model: str | None = None,
 ) -> str:
-    """Generate music from a text description.
+    """Generate music from a text description and optional lyrics/source audio.
 
-    Args:
-        prompt: Description of the music style, mood, instruments.
-        lyrics: Lyrics with section tags [Verse], [Chorus], etc. Use [inst] for instrumental.
-        duration: Target duration in seconds.
-        format: Output format — mp3, wav, flac, ogg.
-        bpm: Beats per minute (60-200).
-        key_scale: Musical key, e.g. "C major", "A minor".
-        vocal_language: Language code — en, zh, ja, ko, etc.
-        instrumental: True for instrumental only (no vocals).
-        seed: Random seed for reproducibility.
-        task_type: Generation type — text2music, cover, repaint, complete.
-        guidance_scale: Classifier-free guidance (higher = more prompt adherence).
-        inference_steps: Diffusion steps (more = higher quality, slower).
+    Saves generated audio to disk and returns the file path plus parsed
+    metadata. For cover/repaint pass src_audio (local file path) — task_type
+    auto-defaults to 'cover'. task_type cover/repaint/complete require src_audio.
     """
+    fmt = (format or "mp3").lower()
+    if fmt not in _CHAT_FORMATS:
+        return f"Invalid format '{format}'. Valid: {sorted(_CHAT_FORMATS)}"
+
     if instrumental and not lyrics:
         lyrics = "[inst]"
 
-    audio_config: dict = {"format": format, "vocal_language": vocal_language}
+    resolved_task = _resolve_task_type(task_type, src_audio)
+    if resolved_task is None:
+        return f"src_audio requires a source-audio task type, got '{task_type}'."
+    if src_audio and not prompt:
+        return "src_audio requires a non-empty prompt."
+    if not src_audio and resolved_task in {"cover", "repaint", "complete"}:
+        return f"task_type '{resolved_task}' requires src_audio."
+
+    model_resolved_here = model is None
+    if model is None:
+        model = _resolve_model()
+
+    audio_config = {"format": fmt, "vocal_language": vocal_language}
     if duration is not None:
         audio_config["duration"] = duration
     if bpm is not None:
         audio_config["bpm"] = bpm
     if key_scale is not None:
         audio_config["key_scale"] = key_scale
+    if time_signature is not None:
+        audio_config["time_signature"] = time_signature
     if instrumental:
         audio_config["instrumental"] = True
 
-    body: dict = {
-        "model": "acestep/acestep-v15-chinese-lyric",
-        "messages": [{"role": "user", "content": prompt}],
+    body = {
+        "model": model,
+        "messages": _build_messages(prompt, src_audio),
         "stream": False,
         "audio_config": audio_config,
-        "task_type": task_type,
+        "task_type": resolved_task,
     }
     if lyrics:
         body["lyrics"] = lyrics
@@ -321,8 +335,19 @@ def generate_music(
         body["guidance_scale"] = guidance_scale
     if inference_steps is not None:
         body["inference_steps"] = inference_steps
+    if repaint_start is not None:
+        body["repainting_start"] = repaint_start
+    if repaint_end is not None:
+        body["repainting_end"] = repaint_end
+    if cover_strength is not None:
+        body["audio_cover_strength"] = cover_strength
 
     r = _request("POST", "/v1/chat/completions", body)
+
+    if r.get("error") and model_resolved_here and "model" in r["error"].lower():
+        model = _resolve_model(force=True)
+        body["model"] = model
+        r = _request("POST", "/v1/chat/completions", body)
 
     if r.get("error"):
         return f"Generation failed: {r['error']}"
@@ -335,33 +360,21 @@ def generate_music(
     content = msg.get("content", "")
     audio_list = msg.get("audio", [])
 
-    result_parts = []
-    if content:
-        result_parts.append(content)
+    saved = _save_audio(audio_list, OUTPUT_DIR)
+    if not saved:
+        return "No audio produced (the model may still be loading). Retry in a few seconds."
 
-    if audio_list:
-        for i, a in enumerate(audio_list):
-            url = a.get("audio_url", {}).get("url", "")
-            if url.startswith("data:"):
-                # Extract mime and size info
-                header, _ = url.split(",", 1)
-                mime = header.split(":")[1].split(";")[0] if ":" in header else "unknown"
-                b64_len = len(url.split(",", 1)[1]) if "," in url else 0
-                approx_bytes = b64_len * 3 // 4
-                size_mb = approx_bytes / (1024 * 1024)
-                result_parts.append(
-                    f"\nAudio #{i + 1}: {mime}, ~{size_mb:.1f} MB base64 data URL"
-                )
-            else:
-                result_parts.append(f"\nAudio #{i + 1}: {url}")
-        result_parts.append(
-            "\nThe audio is a base64 data URL in the 'audio' field. "
-            "Decode and save to play."
-        )
-    else:
-        result_parts.append("\nNo audio in response (models may still be loading).")
-
-    return "\n".join(result_parts)
+    meta = _parse_metadata(content)
+    lines = [f"Audio saved: {p}" for p in saved]
+    for key, label in (
+        ("caption", "Caption"), ("bpm", "BPM"), ("duration", "Duration"),
+        ("key", "Key"), ("time_signature", "Time signature"), ("lyrics", "Lyrics"),
+    ):
+        if meta.get(key):
+            lines.append(f"{label}: {meta[key]}")
+    if seed is not None:
+        lines.append(f"Seed: {seed}")
+    return "\n".join(lines)
 
 
 @mcp.tool()
